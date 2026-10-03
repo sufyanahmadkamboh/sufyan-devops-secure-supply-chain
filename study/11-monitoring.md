@@ -36,11 +36,23 @@ The alert rules, [`platform/monitoring/rules.yaml`](../platform/monitoring/rules
       - alert: UntrustedWorkloadBlocked
         expr: >-
           sum by (resource_namespace, resource_kind) (
-            increase(kyverno_admission_requests_total{request_allowed="false", request_webhook="ValidatingWebhookConfiguration", resource_namespace="prod"}[10m])
+            (
+              (kyverno_admission_requests_total{request_allowed="false", resource_namespace="prod"}
+                unless kyverno_admission_requests_total{request_allowed="false", resource_namespace="prod"} offset 10m) * 1
+              and on () (time() - process_start_time_seconds{job="prometheus"} > 600)
+            )
+            or
+            increase(kyverno_admission_requests_total{request_allowed="false", resource_namespace="prod"}[10m])
           ) > 0
         labels:
           severity: critical
 ```
+
+Read it from the bottom up:
+- `increase(...[10m])` is the main part: how many refusals happened in the last 10 minutes.
+- The first part covers a gap found while testing this project. Kyverno creates a counter only when the first refusal of a kind happens, and the counter starts at that value (for example 3), with no earlier 0. `increase()` needs two samples to see growth, so those first refusals would be invisible. `X unless X offset 10m` keeps only counters that did not exist 10 minutes ago, and counts them with their full value. `* 1` drops the metric name so `or` can line them up with `increase()`'s results.
+- There is no `request_webhook` filter on purpose. `verify-release-images` also rewrites the image to its digest, so Kyverno runs it in the *mutating* phase, and a missing or wrong signature is refused there (`request_webhook="MutatingWebhookConfiguration"`). `allowed-images` and `restricted-pods` refuse in the *validating* phase. A request is refused in one phase only, so summing both counts each refusal once. An earlier version counted only the validating phase and missed exactly the unsigned and imposter images; the local dashboard demo showed 10 refusals where 19 had happened.
+- `and on () (time() - process_start_time_seconds… > 600)` switches that first part off for Prometheus' first 10 minutes. Its storage is not persistent here, so after a restart every counter "did not exist 10 minutes ago", and the alert would fire for old refusals.
 
 ```yaml
       - alert: AdmissionControllerDown
@@ -96,6 +108,8 @@ docker run --rm -it --network kind -p 3000:3000 -v "$ROOT_NATIVE/.lab:/lab" -e K
 ## Common mistakes
 
 - Alerting on `kyverno_admission_requests_total` without `increase()`: a counter never goes down, so the alert would fire forever after the first refusal.
+- Filtering a "refused" counter by webhook phase without checking which phase each policy refuses in.
+- Relying on `increase()` alone for rare events: a counter that is created already above 0 shows no increase, so the very first refusals are missed. The promtool tests include exactly this case (`values: "_ _ 3 3 3"`, where `_` means "no sample yet").
 - Counting refusals in every namespace: the sandbox and test namespaces would page people all day.
 - Alert rules without tests: a typo in a label name means the alert silently never fires.
 - `absent()` on the wrong job name: the "controller down" alert fires constantly, or never.

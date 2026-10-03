@@ -62,7 +62,20 @@ crane has no quiet flag; redirect its output instead.
 **Kyverno metric for denials**
 In Kyverno 1.19, denials appear in `kyverno_admission_requests_total{request_allowed="false"}`, and
 image-policy outcomes appear in `kyverno_image_validating_policy_results_total`. The alert rules use these, as
-checked against a live cluster.
+checked against a live cluster. Do not filter on `request_webhook`: signature failures are refused in the
+mutating phase (the image policy rewrites tags to digests), registry and pod-spec failures in the validating
+phase.
+
+## Monitoring
+
+**`UntrustedWorkloadBlocked` did not fire for the first refusals**
+Kyverno creates a counter series only on the first refusal of a kind, and the series starts at that value.
+`increase()` needs two samples, so it does not see that first step. The rule also counts series that did not exist
+10 minutes ago (skipped while Prometheus itself is younger than 10 minutes). Covered by a promtool test.
+
+**A pod with `runAsNonRoot: true` in the pod securityContext was refused by `restricted-pods`**
+Fixed: the policy now follows Kubernetes semantics (the container's value wins, otherwise the pod's). A container
+that sets `runAsNonRoot: false` is still refused. Both cases are in `policies/tests`.
 
 ## Windows (Git Bash)
 
