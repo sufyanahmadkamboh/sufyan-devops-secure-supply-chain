@@ -181,10 +181,18 @@ s4() {
   argo_refresh
   wait_for 300 argo_at_revision "$bad" >/dev/null || fail "Argo CD never picked up commit $bad (at: $(argo '{.status.sync.revision}'))"
   record "- Argo CD applied the malicious commit after $(( $(date +%s) - start )) s"
-  blocked() { k -n prod get events --field-selector reason=FailedCreate -o jsonpath='{.items[*].message}' | grep -q "${tampered##*@}\|verify-release-images\|signature"; }
+  # Kyverno can refuse at two points: the Deployment update itself (its image policy also covers pod
+  # controllers) or, later, the ReplicaSet's pod creation. Either way nothing untrusted may start.
+  deploy_refusal() { argo '{.status.operationState.syncResult.resources[?(@.kind=="Deployment")].message}'; }
+  pod_refusal() { k -n prod get events --field-selector reason=FailedCreate -o jsonpath='{.items[*].message}'; }
+  blocked() { { deploy_refusal; pod_refusal; } | grep -q "verify-release-images"; }
   if wait_for 300 blocked >/dev/null; then
-    pass "Argo CD applied the commit, Kyverno refused the new pods after $(( $(date +%s) - start )) s"
+    local where="pod creation"
+    deploy_refusal | grep -q verify-release-images && where="the Deployment update (Argo CD sync: $(argo '{.status.operationState.phase}'))"
+    pass "Kyverno refused the malicious rollout at $where, $(( $(date +%s) - start )) s after the push"
+    record "- refusal: $( { deploy_refusal; pod_refusal; } | grep -o 'Policy verify-release-images failed: [^.;]*' | head -n1)"
   else
+    record "- Argo CD: $(argo '{.status.operationState.message}')"
     fail "the malicious rollout was not blocked"
   fi
   sleep 20
