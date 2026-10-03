@@ -1,6 +1,8 @@
 # 15. Hands-on labs
 
-Start the lab once with `scripts/platform-up.sh`. All commands run from the repository root, in bash (Git Bash on Windows). Load the helpers in every new terminal:
+Start the lab once with `scripts/platform-up.sh`. For a quick tour first, `scripts/try.sh` runs each basic exercise with one command (`scripts/try.sh` without arguments lists them: verify, wrong-identity, trusted, foreign, unsigned, privileged, sandbox, scan, alerts, dashboard, clean). The labs below go deeper.
+
+All commands run from the repository root, in bash (Git Bash on Windows). Load the helpers in every new terminal:
 
 ```bash
 source scripts/lib.sh     # tb = run a command in the toolbox, k = kubectl in the toolbox

@@ -59,15 +59,17 @@ scene(None, "What you will learn", "One project, twelve tools, one goal", grid([
     card(3, "📊", "Trivy Operator · Prometheus · Grafana", "watch what runs"),
     card(3, "🧪", "kind", "an attack test on every release"),
     card(4, "📈", "Measured results", "from real CI runs", "ok"),
+    card(4, "💻", "Hands-on lab", "run and attack it on your laptop", "ok"),
     card(4, "🚀", "Production rollout", "step-by-step plan", "ok"),
-], cols=3, gap=18), [
+], cols=4, gap=16), [
     S("Here is what we will cover. First, why this problem matters, with real attacks from 2025 and 2026."),
     S("Then the idea behind the solution, and the architecture."),
     S("Then every tool, one by one. Docker and distroless images. GitHub Actions. Trivy. Syft. SLSA provenance. And Sigstore cosign.",
       tts="Then every tool, one by one. Docker and distroless images. GitHub Actions. Trivy. Syft. S L S A provenance. And Sigstore cosign."),
     S("Kyverno for admission control. Argo CD and Kustomize for GitOps. Trivy Operator, Prometheus and Grafana for monitoring. "
       "And kind, for an end to end attack test that runs on every release."),
-    S("Finally, the measured results, and a step by step plan to use this in your own production cluster."),
+    S("Finally, the measured results, a hands-on lab where you run and attack the whole platform on your own laptop, "
+      "and a step by step plan to use this in your own production cluster."),
 ])
 
 # ---------------------------------------------------------------- 2. Problem
@@ -722,6 +724,174 @@ scene("Measured results", "Measured on GitHub Actions · run 37119604685", "7 at
 ])
 
 # ---------------------------------------------------------------- 26/27. Production rollout
+# ---------------------------------------------------------------- Hands-on lab (real output from a fresh clone)
+scene("Hands-on: run it on your laptop", "Hands-on lab · what you need", "Run the whole platform on your laptop", checklist([
+    (1, "🐳", "Docker Desktop (or Docker Engine)", "give it 4 CPUs and 8 GB of memory"),
+    (2, "☸️", "kind + git", "kind creates the Kubernetes cluster inside Docker"),
+    (2, "⌨️", "A Bash terminal", "macOS / Linux terminal, or Git Bash on Windows"),
+    (3, "🌐", "An internet connection", "pulls images and checks signatures with Sigstore; no cloud account, no cost"),
+]), [
+    S("Now let us make this practical. You can run the whole platform on your own laptop, for free, and attack it yourself. "
+      "I recorded every command and output in this part from a fresh clone of the repository, so you will see exactly what to expect."),
+    S("You need Docker, with at least four CPUs and eight gigabytes of memory available."),
+    S("You need kind, which creates a Kubernetes cluster inside Docker, and git. Any Bash terminal works: macOS, Linux, or Git Bash on Windows."),
+    S("And an internet connection, because the cluster pulls the signed release from the registry and checks its signatures with Sigstore. "
+      "There is no cloud account to create, and nothing costs money. Every other tool, like kubectl, Helm and cosign, runs inside a container that the scripts build for you.",
+      tts="And an internet connection, because the cluster pulls the signed release from the registry and checks its signatures with Sigstore. "
+          "There is no cloud account to create, and nothing costs money. Every other tool, like kube control, Helm and co-sign, runs inside a container that the scripts build for you."),
+])
+
+scene(None, "Hands-on lab · step 1", "Clone it and start the platform", terminal([
+    (0, "$ git clone https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain.git", "cmd"),
+    (0, "$ cd sufyan-devops-secure-supply-chain", "cmd"),
+    (0, "$ scripts/platform-up.sh", "cmd"),
+    (1, "==> Building the toolbox image", "out"),
+    (1, "==> Creating kind cluster supply-chain", "out"),
+    (2, "==> Kyverno (chart 3.9.1)", "out"),
+    (2, "==> Admission policies (prod: Deny, sandbox: Audit)", "out"),
+    (2, "==> Namespaces", "out"),
+    (2, "==> Argo CD v3.5.3", "out"),
+    (2, "==> Trivy Operator (chart 0.36.0), scanning prod and sandbox", "out"),
+    (2, "==> Prometheus + Grafana", "out"),
+    (2, "==> Argo CD Application (follows: main)", "out"),
+    (3, " ok Platform ready", "ok"),
+    (3, "# 3 min 37 s on my laptop, from a fresh clone (including the toolbox build)", "dim"),
+], "bash"), [
+    S("Step one: clone the repository, go into the folder, and run the platform up script. That is the only setup command."),
+    S("First it builds the toolbox image, with kubectl, Helm, cosign, crane and the Kyverno command line, all pinned and checksum verified. "
+      "Then it creates a kind cluster with a control plane and a worker node.",
+      tts="First it builds the toolbox image, with kube control, Helm, co-sign, crane and the Kai-verno command line, all pinned and checksum verified. "
+          "Then it creates a kind cluster with a control plane and a worker node."),
+    S("Next it installs Kyverno and the policies, labels the namespaces, installs Argo CD, Trivy Operator, Prometheus and Grafana, "
+      "and finally points Argo CD at the production folder on the main branch."),
+    S("From a fresh clone on my laptop, this took three minutes and thirty seven seconds. A minute later, Argo CD has deployed the signed release."),
+])
+
+scene(None, "Hands-on lab · step 2", "Look around: what runs where", terminal([
+    (0, "$ scripts/try.sh status", "cmd"),
+    (1, "==> Platform", "out"),
+    (1, "argocd        argocd-server-665b8b6947-nv8k2                     Running", "out"),
+    (1, "kyverno       kyverno-admission-controller-769b8f7647-h447v      Running", "out"),
+    (1, "monitoring    grafana-7d46d56c7c-kqblg                           Running", "out"),
+    (1, "trivy-system  trivy-operator-85bdc5d5fc-sgmpg                    Running", "out"),
+    (1, "prod          storefront-api-7785589b67-cfj7w                    Running", "out"),
+    (2, "==> Admission policies (prod: Deny, sandbox: Audit)", "out"),
+    (2, "imagevalidatingpolicy.policies.kyverno.io/verify-release-images", "out"),
+    (2, "validatingpolicy.policies.kyverno.io/allowed-images", "out"),
+    (2, "validatingpolicy.policies.kyverno.io/restricted-pods            (+ 3 x -audit)", "out"),
+    (3, "==> The release Argo CD deployed to prod", "out"),
+    (3, "Synced / Healthy", "ok"),
+    (3, "storefront-api-…-cfj7w  ghcr.io/sufyanahmadkamboh/storefront-api@sha256:cb9b332ce38c9efb…", "ok"),
+], "bash · excerpt"), [
+    S("Step two: look around. Every exercise is one command: scripts slash try dot S H, followed by the name of the exercise. Start with status.",
+      tts="Step two: look around. Every exercise is one command: scripts slash try dot S H, followed by the name of the exercise. Start with status."),
+    S("You see the platform: Argo CD, Kyverno, Grafana and Prometheus, Trivy Operator, and our storefront API running in the prod namespace.",
+      tts="You see the platform: Argo C D, Kai-verno, Grafana and Prometheus, Trivy Operator, and our storefront A P I running in the prod namespace."),
+    S("There are six policies: our three, plus an audit copy of each for the sandbox namespace."),
+    S("And the release in prod is synced and healthy, and pinned to a digest. Argo CD deployed it from git, and Kyverno verified it on the way in.",
+      tts="And the release in prod is synced and healthy, and pinned to a digest. Argo C D deployed it from git, and Kai-verno verified it on the way in."),
+])
+
+scene(None, "Hands-on lab · step 3", "Verify the signature yourself", terminal([
+    (0, "$ scripts/try.sh verify", "cmd"),
+    (0, "==> Is ghcr.io/sufyanahmadkamboh/storefront-api@sha256:cb9b332ce38c… signed by release.yaml on main?", "out"),
+    (1, "The following checks were performed on each of these signatures:", "out"),
+    (1, "  - The cosign claims were validated", "out"),
+    (1, "  - Existence of the claims in the transparency log was verified offline", "out"),
+    (1, "  - The code-signing certificate was verified using trusted certificate authority certificates", "out"),
+    (2, "built from commit 2770967ea684b2ebf86c429430ed26921568a503 by release (push)", "ok"),
+    (2, " ok signed slsaprovenance1 attestation", "ok"),
+    (2, " ok signed vuln attestation", "ok"),
+    (2, " ok signed cyclonedx attestation", "ok"),
+    (3, "$ scripts/try.sh wrong-identity", "cmd"),
+    (3, "==> Same image, but expecting a different workflow (ci.yaml) as the signer", "out"),
+    (3, "FAILED as expected. The certificate was issued to:", "bad"),
+    (3, "  https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/.github/workflows/release.yaml@refs/heads/main", "bad"),
+], "bash"), [
+    S("Step three: verify the release yourself, exactly the way the cluster does. Run try dot S H verify.", tts="Step three: verify the release yourself, exactly the way the cluster does. Run try dot S H verify."),
+    S("cosign checks the signature, the certificate from Sigstore's certificate authority, and the entry in the public transparency log.",
+      tts="Co-sign checks the signature, the certificate from Sigstore's certificate authority, and the entry in the public transparency log."),
+    S("It tells you the exact commit and workflow that built the image, and that all three attestations are signed: provenance, the vulnerability scan, and the SBOM.",
+      tts="It tells you the exact commit and workflow that built the image, and that all three attestations are signed: provenance, the vulnerability scan, and the S-bom."),
+    S("Now run wrong identity. It does the same check, but expects a different workflow, ci dot yaml, as the signer. It fails, and shows you who really signed: release dot yaml on main. "
+      "This one check is what stops an injected workflow.",
+      tts="Now run wrong identity. It does the same check, but expects a different workflow, C I dot yammel, as the signer. It fails, and shows you who really signed: release dot yammel on main. "
+          "This one check is what stops an injected workflow."),
+])
+
+scene(None, "Hands-on lab · step 4", "Be the attacker", terminal([
+    (0, "$ scripts/try.sh trusted", "cmd"),
+    (0, "ADMITTED pod/try-trusted created", "ok"),
+    (1, "$ scripts/try.sh foreign", "cmd"),
+    (1, "REFUSED denied the request: Policy allowed-images failed: only ghcr.io/sufyanahmadkamboh/storefront-api", "bad"),
+    (1, "        images may run here, got: docker.io/library/nginx:1.29", "bad"),
+    (2, "$ scripts/try.sh unsigned", "cmd"),
+    (2, "==> Building your own image as ghcr.io/sufyanahmadkamboh/storefront-api:local and side-loading it onto the nodes", "out"),
+    (2, "REFUSED denied the request: Policy verify-release-images error: failed to update digest: failed to resolve", "bad"),
+    (2, "        digest for image ghcr.io/sufyanahmadkamboh/storefront-api:local …", "bad"),
+    (3, "$ scripts/try.sh privileged", "cmd"),
+    (3, "REFUSED violates PodSecurity \"restricted:latest\": privileged (container \"app\" must not set", "bad"),
+    (3, "        securityContext.privileged=true), allowPrivilegeEscalation != false …", "bad"),
+], "bash"), [
+    S("Step four: be the attacker. First the control: try dot S H trusted starts the signed release as a pod in prod. It is admitted.",
+      tts="Step four: be the attacker. First the control: try dot S H trusted starts the signed release as a pod in prod. It is admitted."),
+    S("Now foreign: an nginx image from Docker Hub. Refused by allowed images, with a message that says exactly why.",
+      tts="Now foreign: an engine x image from Docker Hub. Refused by allowed images, with a message that says exactly why."),
+    S("Unsigned is a sneaky one. It builds your own image on your laptop, gives it our trusted name, and side loads it straight onto the cluster nodes, skipping the registry. "
+      "Kyverno refuses it: it insists on finding the image and its signatures in the registry, and an image it cannot verify there never runs.",
+      tts="Unsigned is a sneaky one. It builds your own image on your laptop, gives it our trusted name, and side loads it straight onto the cluster nodes, skipping the registry. "
+          "Kai-verno refuses it: it insists on finding the image and its signatures in the registry, and an image it cannot verify there never runs."),
+    S("And privileged starts our own, trusted image as a privileged container. Pod Security refuses it, before Kyverno even looks at the image.",
+      tts="And privileged starts our own, trusted image as a privileged container. Pod Security refuses it, before Kai-verno even looks at the image."),
+])
+
+scene(None, "Hands-on lab · step 5", "Audit mode and the vulnerability scanner", terminal([
+    (0, "$ scripts/try.sh sandbox", "cmd"),
+    (0, "ADMITTED pod/try-sandbox created", "ok"),
+    (0, "==> Waiting for the PolicyReport (audit mode reports instead of blocking)", "out"),
+    (0, "would be refused in prod: allowed-images-audit", "warn"),
+    (1, "$ scripts/try.sh scan", "cmd"),
+    (1, "ADMITTED pod/try-scan created", "ok"),
+    (1, "==> Waiting for Trivy Operator to scan it (a few minutes the first time)", "out"),
+    (1, "library/nginx:1.21.0  CRITICAL 27  HIGH 134", "bad"),
+    (2, "$ scripts/try.sh alerts", "cmd"),
+    (2, "firing   UntrustedWorkloadBlocked                 Kyverno blocked 4 Pod request(s) in prod (10 min)", "bad"),
+    (2, "pending  RunningImageHasCriticalVulnerabilities   sandbox: library/nginx has 6 CRITICAL vulnerabilities", "warn"),
+], "bash"), [
+    S("Step five: audit mode. try dot S H sandbox starts the same Docker Hub image in the sandbox namespace. This time it is admitted, "
+      "and a moment later the policy report says it would be refused in prod. This is how you introduce policies without breaking anyone.",
+      tts="Step five: audit mode. try dot S H sandbox starts the same Docker Hub image in the sandbox namespace. This time it is admitted, "
+          "and a moment later the policy report says it would be refused in prod. This is how you introduce policies without breaking anyone."),
+    S("Then scan starts an old nginx, version 1.21.0, and waits for Trivy Operator. On my laptop it found twenty seven critical and one hundred thirty four high vulnerabilities.",
+      tts="Then scan starts an old engine x, version 1 point 21 point 0, and waits for Trivy Operator. On my laptop it found twenty seven critical and one hundred thirty four high vulnerabilities."),
+    S("And alerts shows what Prometheus thinks. Untrusted workload blocked is firing, because of your attacks in step four. "
+      "And the vulnerability alert is pending: even today's nginx 1.29 from the sandbox exercise has six critical findings. It fires after five minutes.",
+      tts="And alerts shows what Prometheus thinks. Untrusted workload blocked is firing, because of your attacks in step four. "
+          "And the vulnerability alert is pending: even today's engine x 1 point 29 from the sandbox exercise has six critical findings. It fires after five minutes."),
+])
+
+scene(None, "Hands-on lab · step 6", "Dashboard, your own commands, clean up", terminal([
+    (0, "$ scripts/try.sh dashboard", "cmd"),
+    (0, "==> Grafana: http://localhost:3000 (Ctrl+C to stop)", "ok"),
+    (1, "$ source scripts/lib.sh            # k = kubectl, tb = any tool in the toolbox", "cmd"),
+    (1, "$ k -n prod get pods", "cmd"),
+    (1, "$ tb cosign tree ghcr.io/sufyanahmadkamboh/storefront-api@sha256:cb9b332c…", "cmd"),
+    (1, "└── 💾 Attestations for an image tag: …:sha256-cb9b332ce38c….att   (3 entries)", "out"),
+    (1, "└── 🔐 Signatures for an image tag: …:sha256-cb9b332ce38c….sig     (1 entry)", "out"),
+    (2, "# study/15-hands-on-labs.md: 9 labs — break a policy and let the tests catch it,", "dim"),
+    (2, "#   break an alert and let promtool catch it, fix a vulnerable workflow, follow a full release in a fork", "dim"),
+    (3, "$ scripts/try.sh clean", "cmd"),
+    (3, "$ kind delete cluster --name supply-chain", "cmd"),
+], "bash"), [
+    S("Step six. try dot S H dashboard opens Grafana on localhost, port 3000, with the same dashboard you saw earlier.",
+      tts="Step six. try dot S H dashboard opens Grafana on localhost, port 3000, with the same dashboard you saw earlier."),
+    S("To run your own commands, source lib dot S H. Then k is kubectl, and tb runs any tool from the toolbox, for example cosign tree, to see every signature and attestation attached to the image.",
+      tts="To run your own commands, source lib dot S H. Then k is kube control, and T B runs any tool from the toolbox, for example co-sign tree, to see every signature and attestation attached to the image."),
+    S("When you are ready for more, the study guide has nine labs. You break a policy and let the tests catch it, break an alert and let prom tool catch it, "
+      "fix a vulnerable workflow, and follow a full signed release in your own fork."),
+    S("When you are done, clean up the exercise pods, and delete the cluster with kind. Your laptop is back to normal."),
+])
+
 scene("Use it in production", "Production rollout · part 1", "From this repo to your cluster", checklist([
     (1, "1", "Make it yours", "change the image name + trusted identity: 3 policy files, release.yaml, scripts/e2e.sh"),
     (2, "2", "Protect the trust anchor", "branch protection on main, required reviews + checks, CODEOWNERS for workflows and policies"),
@@ -775,7 +945,8 @@ scene("Summary & resources", "Thanks for watching", "Only code you can prove run
     card(2, "🔔", "More real DevOps projects", "subscribe so you don't miss the next one", "amber"),
 ], cols=2), [
     S("That is the project. Production now runs only code it can prove came from your pipeline, and every release proves it again by attacking itself."),
-    S("The code, the documentation and a free sixty page study guide, with labs and interview questions, are linked in the description."),
+    S("The code, the documentation and a free sixty page study guide, with labs and interview questions, are linked in the description. "
+      "Clone it, run platform up, and try the attacks yourself."),
     S("Now I would like to hear from you: with your registry password, could someone run their code in your cluster? Tell me in the comments. "
       "And if this helped, subscribe for more real DevOps projects. Thanks for watching."),
 ])

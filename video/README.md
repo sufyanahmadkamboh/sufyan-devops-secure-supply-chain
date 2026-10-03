@@ -1,11 +1,11 @@
 # Video tutorial
 
-A 23-minute explainer of this project, built entirely from code: every frame is an HTML scene rendered by a
+A 28-minute explainer of this project, built entirely from code: every frame is an HTML scene rendered by a
 headless browser, the narration uses the Windows speech engine, and ffmpeg assembles the result.
 
 | File | What it is |
 |---|---|
-| `scenes.py` | the script: 30 scenes, 128 narration steps, and the visuals for each step |
+| `scenes.py` | the script: 37 scenes, 155 narration steps, and the visuals for each step |
 | `components.py` | building blocks: cards, tiles, diagrams, highlighted code excerpts |
 | `build.py` | the pipeline: page → frames → narration → encode → captions and chapters |
 | `shot.mjs` | screenshots the scenes with one headless Edge/Chrome (DevTools protocol) |

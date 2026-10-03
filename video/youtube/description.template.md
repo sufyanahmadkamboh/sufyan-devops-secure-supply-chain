@@ -1,10 +1,15 @@
-Could a stolen registry password run code in your Kubernetes cluster? In this full DevOps project I build a zero-trust software supply chain: production only runs container images that your own GitHub Actions release pipeline built, scanned and signed, checked at admission by Kyverno with Sigstore keyless signatures, SLSA provenance, a signed vulnerability scan and an SBOM. Then I attack it 7 ways on every release and show the measured results.
+Could a stolen registry password run code in your Kubernetes cluster? In this full DevOps project I build a zero-trust software supply chain: production only runs container images that your own GitHub Actions release pipeline built, scanned and signed, checked at admission by Kyverno with Sigstore keyless signatures, SLSA provenance, a signed vulnerability scan and an SBOM. Then I attack it 7 ways on every release, show the measured results, and walk you through running and attacking it on your own laptop.
 
 💻 Code: https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain
 📚 Free study guide (60-page PDF, 9 labs, 25 interview questions): https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/tree/main/study
 📈 Measured test results: https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/blob/main/docs/test-results.md
 🧪 The CI run behind the numbers: https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/actions/runs/37119604685
 🌐 All my projects: https://sufyanahmadkamboh.github.io/#story=secure-supply-chain&slide=1
+
+🧪 Run it on your laptop (Docker, kind, git, Bash; about 4 minutes, no cloud account):
+git clone https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain.git
+cd sufyan-devops-secure-supply-chain && scripts/platform-up.sh
+scripts/try.sh verify | trusted | foreign | unsigned | privileged | sandbox | scan | alerts | dashboard
 
 ⏱️ Chapters
 {{CHAPTERS}}

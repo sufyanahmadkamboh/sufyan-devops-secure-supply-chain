@@ -7,7 +7,7 @@
 #   wrong-identity  the same check, expecting a different workflow: it must fail
 #   trusted         start the signed release as a pod in prod (admitted, pinned to its digest)
 #   foreign         start a Docker Hub image in prod (refused: allowed-images)
-#   unsigned        build your own image under the trusted name, load it into the cluster (refused: no signature)
+#   unsigned        build your own image under the trusted name, side-load it onto the nodes (refused)
 #   privileged      start the trusted image as a privileged pod (refused: Pod Security)
 #   sandbox         start an unsigned image in the audit namespace (allowed, but reported)
 #   scan            run an old nginx in the sandbox and wait for Trivy Operator's report
@@ -43,17 +43,17 @@ spec:
 EOF
 }
 
-# Try to create a pod and report what the cluster said, with the time it took.
+# Try to create a pod and report what the cluster said. (No timings here: every command also starts the
+# toolbox container. The measured admission times are in docs/test-results.md.)
 attempt() {  # name namespace image [privileged]
-  local start out
-  start=$(date +%s%N)
+  local out
   k -n "$2" delete pod "$1" --ignore-not-found --wait=false >/dev/null
   if out="$(pod "$@" | k apply -f - 2>&1)"; then
-    printf '\033[1;32mADMITTED\033[0m in %s ms: %s\n' "$(( ($(date +%s%N) - start) / 1000000 ))" "$out"
+    printf '\033[1;32mADMITTED\033[0m %s\n' "$out"
     return 0
   fi
-  printf '\033[1;31mREFUSED\033[0m in %s ms\n' "$(( ($(date +%s%N) - start) / 1000000 ))"
-  echo "$out" | grep -oE 'denied the request: .*|violates PodSecurity .*' | head -n1 | cut -c1-220
+  printf '\033[1;31mREFUSED\033[0m '
+  echo "$out" | grep -oE 'denied the request: .*|violates PodSecurity .*' | head -n1 | cut -c1-200
 }
 
 case "${1:-}" in
@@ -81,7 +81,8 @@ case "${1:-}" in
     if tb cosign verify --certificate-identity "${ID/release.yaml/ci.yaml}" --certificate-oidc-issuer "$ISSUER" "$IMAGE@$DIGEST" >/dev/null 2>"$STATE/err"; then
       die "verification unexpectedly succeeded"
     fi
-    printf '\033[1;31mFAILED\033[0m as expected: %s\n' "$(grep -oE 'none of the expected identities matched.*' "$STATE/err" | cut -c1-160)"
+    printf '\033[1;31mFAILED\033[0m as expected. The certificate was issued to:\n  %s\n' \
+      "$(grep -oE 'got subjects \[[^]]*\]' "$STATE/err" | head -n1 | sed -E 's/got subjects \[(.*)\]/\1/')"
     ;;
   trusted)
     attempt try-trusted prod "$IMAGE@$DIGEST"
@@ -90,10 +91,11 @@ case "${1:-}" in
     attempt try-foreign prod docker.io/library/nginx:1.29
     ;;
   unsigned)
-    log "Building your own image and calling it $IMAGE:local (what a stolen token would allow)"
+    log "Building your own image as $IMAGE:local and side-loading it onto the nodes (skipping the registry)"
     docker build -q -t "$IMAGE:local" app >/dev/null
     "$KIND" load docker-image "$IMAGE:local" --name "$CLUSTER" >/dev/null 2>&1
-    attempt try-unsigned prod "$IMAGE:local"
+    attempt try-unsigned prod "$IMAGE:local" || true
+    echo "Kyverno resolves every image and its signatures in the registry: an image it cannot verify there never runs."
     ;;
   privileged)
     attempt try-privileged prod "$IMAGE@$DIGEST" true

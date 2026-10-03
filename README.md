@@ -17,7 +17,7 @@ checks all of them before any pod starts, and Trivy Operator keeps re-scanning w
 
 > 📚 **New to DevOps security? Start with the [study guide](study/README.md)** (also available as a single **[PDF](study/study-guide.pdf)**). It teaches every piece of this project from zero: container images, supply-chain attacks, GitHub Actions security, SBOMs, vulnerability scanning, Sigstore, SLSA provenance, Kyverno, Pod Security, Argo CD and monitoring. It includes 9 hands-on labs and 25 interview questions.
 
-> 🎬 **Prefer video?** A 23-minute walkthrough of every tool, its configuration and the production rollout is built from code in [video/](video/README.md), with the YouTube upload package (description, chapters, captions, thumbnail).
+> 🎬 **Prefer video?** A 28-minute walkthrough of every tool, its configuration, a hands-on lab on your laptop and the production rollout is built from code in [video/](video/README.md), with the YouTube upload package (description, chapters, captions, thumbnail).
 
 **Measured on GitHub Actions** (fresh kind cluster, every release; details in [docs/test-results.md](docs/test-results.md)):
 
@@ -120,18 +120,25 @@ cd sufyan-devops-secure-supply-chain
 scripts/platform-up.sh        # kind + Kyverno + Argo CD + Trivy Operator + Prometheus + Grafana (~3 min)
 ```
 
-Argo CD then deploys the signed release from `deploy/prod`. Try it:
+Argo CD then deploys the signed release from `deploy/prod`. Now try it yourself, one command per exercise:
 
 ```bash
-source scripts/lib.sh
-k -n prod get pods -o jsonpath='{..image}'                 # always ...@sha256:<verified digest>
-k -n prod run evil --image=nginx                            # refused (Pod Security + allowed-images)
-tb cosign verify ghcr.io/sufyanahmadkamboh/storefront-api@<digest> \
-  --certificate-identity https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/.github/workflows/release.yaml@refs/heads/main \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com
-docker run --rm -it --network kind -p 3000:3000 -v "$PWD:/work" -w /work -e KUBECONFIG=/work/.lab/kubeconfig \
-  ssc-toolbox:dev kubectl -n monitoring port-forward --address 0.0.0.0 svc/grafana 3000   # http://localhost:3000
+scripts/try.sh status          # what runs where; the release in prod is pinned to its digest
+scripts/try.sh verify          # check the signature and 3 attestations yourself, like the cluster does
+scripts/try.sh wrong-identity  # expect a different signing workflow: verification fails
+scripts/try.sh trusted         # the signed release as a pod in prod: ADMITTED
+scripts/try.sh foreign         # a Docker Hub image in prod: REFUSED (allowed-images)
+scripts/try.sh unsigned        # your own image under the trusted name: REFUSED (no signature)
+scripts/try.sh privileged      # the trusted image, privileged: REFUSED (Pod Security)
+scripts/try.sh sandbox         # audit mode: allowed, and reported in a PolicyReport
+scripts/try.sh scan            # Trivy Operator finds the CVEs in a running nginx:1.21.0
+scripts/try.sh alerts          # Prometheus alerts
+scripts/try.sh dashboard       # Grafana on http://localhost:3000
+scripts/try.sh clean           # remove the exercise pods
 ```
+
+To run your own commands, load the helpers: `source scripts/lib.sh`, then `k` is kubectl and `tb` runs any tool
+from the toolbox (for example `k -n prod get pods`). The [study guide labs](study/15-hands-on-labs.md) go further.
 
 ## 9. Configuration
 

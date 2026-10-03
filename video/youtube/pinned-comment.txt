@@ -1,2 +1,3 @@
 📚 Free 60-page study guide with 9 hands-on labs and 25 interview questions: https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/tree/main/study
-Which attack surprised you most? For me it was the imposter: a perfectly valid Sigstore signature that is still refused, because it came from the wrong workflow (18:00 → the attack test).
+🧪 Want to try it yourself? Jump to 20:35: clone it, run scripts/platform-up.sh, then attack your own cluster with scripts/try.sh.
+Which attack surprised you most? For me it was the imposter: a perfectly valid Sigstore signature that is still refused, because it came from the wrong workflow (18:04).

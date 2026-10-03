@@ -1,4 +1,4 @@
-Could a stolen registry password run code in your Kubernetes cluster? In this full DevOps project I build a zero-trust software supply chain: production only runs container images that your own GitHub Actions release pipeline built, scanned and signed, checked at admission by Kyverno with Sigstore keyless signatures, SLSA provenance, a signed vulnerability scan and an SBOM. Then I attack it 7 ways on every release and show the measured results.
+Could a stolen registry password run code in your Kubernetes cluster? In this full DevOps project I build a zero-trust software supply chain: production only runs container images that your own GitHub Actions release pipeline built, scanned and signed, checked at admission by Kyverno with Sigstore keyless signatures, SLSA provenance, a signed vulnerability scan and an SBOM. Then I attack it 7 ways on every release, show the measured results, and walk you through running and attacking it on your own laptop.
 
 💻 Code: https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain
 📚 Free study guide (60-page PDF, 9 labs, 25 interview questions): https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/tree/main/study
@@ -6,28 +6,34 @@ Could a stolen registry password run code in your Kubernetes cluster? In this fu
 🧪 The CI run behind the numbers: https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/actions/runs/37119604685
 🌐 All my projects: https://sufyanahmadkamboh.github.io/#story=secure-supply-chain&slide=1
 
+🧪 Run it on your laptop (Docker, kind, git, Bash; about 4 minutes, no cloud account):
+git clone https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain.git
+cd sufyan-devops-secure-supply-chain && scripts/platform-up.sh
+scripts/try.sh verify | trusted | foreign | unsigned | privileged | sandbox | scan | alerts | dashboard
+
 ⏱️ Chapters
 0:00 The question
-1:36 Why: the problem
-2:41 The idea
-3:42 Architecture
-4:47 Tool 1: Docker & distroless
-5:36 Tool 2: GitHub Actions
-7:23 Tool 3: Trivy
-7:59 Tool 4: Syft (SBOM)
-8:35 Tool 5: SLSA provenance
-9:17 Tool 6: Sigstore cosign
-10:30 Tool 7: GHCR & digests
-11:08 Tool 8: Kyverno
-13:36 Rollout: audit first
-14:13 Tool 9: Argo CD & Kustomize
-15:26 Tool 10: Trivy Operator
-16:00 Tool 11: Prometheus & Grafana
-18:00 Tool 12: the attack test
-19:36 Measured results
-20:31 Use it in production
-21:58 Limitations & next steps
-22:31 Summary & resources
+1:40 Why: the problem
+2:45 The idea
+3:46 Architecture
+4:51 Tool 1: Docker & distroless
+5:40 Tool 2: GitHub Actions
+7:27 Tool 3: Trivy
+8:03 Tool 4: Syft (SBOM)
+8:39 Tool 5: SLSA provenance
+9:21 Tool 6: Sigstore cosign
+10:34 Tool 7: GHCR & digests
+11:12 Tool 8: Kyverno
+13:40 Rollout: audit first
+14:17 Tool 9: Argo CD & Kustomize
+15:30 Tool 10: Trivy Operator
+16:04 Tool 11: Prometheus & Grafana
+18:04 Tool 12: the attack test
+19:40 Measured results
+20:35 Hands-on: run it on your laptop
+25:55 Use it in production
+27:22 Limitations & next steps
+27:55 Summary & resources
 
 🧰 Tools used, and what each one does here
 • Docker + distroless: a 3.7 MB, non-root image with base images pinned by digest

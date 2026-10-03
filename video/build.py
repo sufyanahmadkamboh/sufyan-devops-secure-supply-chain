@@ -107,7 +107,10 @@ h1{position:absolute;left:100px;right:100px;top:96px;font-size:58px;line-height:
 .code.hlon pre > span[id]{opacity:.42}
 .code.hlon pre > span.hl{opacity:1;background:rgba(255,201,77,.13);border-left-color:var(--amber)}
 .term{background:#0a0f18;border:3px solid var(--line);border-radius:20px;overflow:hidden;width:100%;padding-bottom:14px}
-.tl{font:500 23px/1.6 "JetBrains Mono",Consolas,monospace;padding:0 24px}
+.tl{font:500 24px/1.72 "JetBrains Mono",Consolas,monospace;padding:0 24px;white-space:pre;overflow:hidden;color:#c9d6e6;font-variant-ligatures:none}
+.tl.cmd{color:#9cc3f0;font-weight:700}.tl.ok{color:#4cc286}.tl.bad{color:#ff8a8a}.tl.warn{color:#ffc94d}.tl.dim{color:#7f93ad;font-style:italic}
+.tl.now{background:rgba(255,201,77,.10)}
+.term{padding-top:0}.term .code-bar{margin-bottom:12px}
 svg.dia{max-width:100%;height:auto}
 svg text{font-family:Inter,"Segoe UI",sans-serif}
 svg g.now rect{filter:drop-shadow(0 0 18px rgba(255,255,255,.35))}
@@ -171,6 +174,8 @@ def shoot(jobs: list[dict], profile: str) -> None:
 def frames() -> None:
     page = write_page()
     FRAMES.mkdir(exist_ok=True)
+    for old in FRAMES.glob("*.png"):
+        old.unlink()
     url = page.as_uri()
     jobs = [{"url": f"{url}?sc={i}&st={k}", "out": str(FRAMES / f"{frame_name(i, k)}.png")}
             for i, s in enumerate(SCENES) for k in range(len(s["steps"]))]
@@ -181,6 +186,8 @@ def frames() -> None:
 # ------------------------------------------------------------------------------------------------ audio
 def audio() -> None:
     AUDIO.mkdir(exist_ok=True)
+    for old in AUDIO.glob("*.wav"):
+        old.unlink()
     items = [{"text": spoken(st), "out": str(AUDIO / f"{frame_name(i, k)}.wav")}
              for i, s in enumerate(SCENES) for k, st in enumerate(s["steps"])]
     (OUT / "tts.json").write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
