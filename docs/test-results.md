@@ -10,6 +10,10 @@ Timings are wall-clock from the test script. "Refused in N ms" is the time from 
 server returned the denial. That includes Kyverno fetching the signatures and attestations from GHCR and checking
 the certificate against Rekor.
 
+The next release, [37132754826](https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/actions/runs/37132754826)
+(after the monitoring and policy fixes listed at the end of this page), passed every check again with similar
+timings: refusals in 359–2,007 ms, GitOps attack refused 5 s after the push, CVE alert firing 322 s after the report.
+
 ## 1. Platform
 
 | Check | Result |
