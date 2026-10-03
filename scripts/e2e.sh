@@ -140,6 +140,7 @@ s3() {
     | .buildDefinition.externalParameters.workflow.path = ".github/workflows/release.yaml"' > "$STATE/fake-provenance.json"
   echo '{"scanner":{"result":{"Results":[]}}}' > "$STATE/fake-vuln.json"
   # The signatures must really exist, otherwise "blocked" below would prove nothing.
+  echo "$GITHUB_TOKEN" | cosign login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null 2>&1 || fail "cosign login to GHCR failed"
   local legacy=(--new-bundle-format=false --use-signing-config=false --yes)
   cosign sign "${legacy[@]}" "$TAMPERED" > "$STATE/imposter-sign.log" 2>&1 || { cat "$STATE/imposter-sign.log"; fail "imposter signing failed"; }
   cosign attest "${legacy[@]}" --type slsaprovenance1 --predicate "$STATE/fake-provenance.json" "$TAMPERED" >> "$STATE/imposter-sign.log" 2>&1 \
