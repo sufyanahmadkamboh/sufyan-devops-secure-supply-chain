@@ -31,7 +31,7 @@ RUN curl -fsSLo kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/
  && echo "${CRANE_SHA256}  crane.tgz" | sha256sum -c - && tar -xzf crane.tgz crane && install -m 0755 crane /usr/local/bin/ \
  && curl -fsSLo kyverno.tgz "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz" \
  && echo "${KYVERNO_SHA256}  kyverno.tgz" | sha256sum -c - && tar -xzf kyverno.tgz kyverno && install -m 0755 kyverno /usr/local/bin/ \
- && cd / && rm -rf /tmp/tools
+ && rm -rf /tmp/tools
 
 WORKDIR /work
 CMD ["bash"]

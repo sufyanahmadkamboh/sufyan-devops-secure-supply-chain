@@ -25,7 +25,8 @@ data:
           - targets: ["kyverno-reports-controller-metrics.kyverno.svc:8000"]
       - job_name: trivy-operator
         static_configs:
-          - targets: ["trivy-operator.trivy-system.svc:80"]
+          # headless service: DNS returns the pod IP, so use the container port
+          - targets: ["trivy-operator.trivy-system.svc:8080"]
       - job_name: prometheus
         static_configs:
           - targets: ["localhost:9090"]
