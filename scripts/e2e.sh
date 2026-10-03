@@ -25,10 +25,15 @@ fail()    { record "- FAIL: $*"; die "$*"; }
 section() { log "$*"; record ""; record "## $*"; }
 
 # ---- helpers ----------------------------------------------------------------------------------
-git_push_branch() {  # message
-  git -c user.name=e2e -c user.email=e2e@users.noreply.github.com commit -qam "$1"
-  git push -q "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$BRANCH" --force
+git_push_branch() {  # message; prints the pushed commit
+  local remote="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+  git -c user.name=e2e -c user.email=e2e@users.noreply.github.com commit -qam "$1" || fail "git commit failed: $1"
+  git push -q "$remote" "HEAD:refs/heads/$BRANCH" --force || fail "git push failed: $1"
+  local head; head="$(git rev-parse HEAD)"
+  [[ "$(git ls-remote "$remote" "refs/heads/$BRANCH" | cut -f1)" == "$head" ]] || fail "remote branch is not at $head"
+  echo "$head"
 }
+argo_at_revision() { [[ "$(argo '{.status.sync.revision}')" == "$1" ]]; }
 set_prod_digest() { sed -i -E "s|(    digest: )sha256:[a-f0-9]{64}|\1$1|" deploy/prod/kustomization.yaml; }
 
 argo() { k -n argocd get application storefront-api -o jsonpath="$1"; }
@@ -70,7 +75,9 @@ EOF
     echo "admitted|$(( ($(date +%s%N) - start) / 1000000 ))"
     k -n prod delete pod "$name" --now >/dev/null 2>&1 || true
   else
-    echo "denied: $(echo "$out" | grep -oE 'failed: .*|denied the request: .*' | head -n1 | cut -c1-200)|$(( ($(date +%s%N) - start) / 1000000 ))"
+    local why
+    why="$(echo "$out" | grep -oE 'denied the request: .*|violates PodSecurity .*' | head -n1 | cut -c1-200)"
+    echo "denied: ${why:-$(echo "$out" | head -n1 | cut -c1-200)}|$(( ($(date +%s%N) - start) / 1000000 ))"
   fi
 }
 expect_denied() {  # label name image [privileged]
@@ -89,7 +96,7 @@ s1() {
   log "Temporary GitOps branch $BRANCH with the new digest"
   git checkout -q -B "$BRANCH"
   set_prod_digest "$DIGEST"
-  git_push_branch "e2e: deploy $DIGEST"
+  git_push_branch "e2e: deploy $DIGEST" >/dev/null
   local start; start=$(date +%s)
   ARGO_REVISION="$BRANCH" scripts/platform-up.sh
   pass "kind + Kyverno + policies + Argo CD + Trivy Operator + Prometheus/Grafana up in $(( $(date +%s) - start )) s"
@@ -168,9 +175,12 @@ s4() {
   section "4. Attack through GitOps (a malicious commit to the deploy manifests)"
   local tampered; tampered="$(cat "$STATE/tampered")"
   set_prod_digest "${tampered##*@}"
-  git_push_branch "e2e: malicious digest change"
+  local bad; bad="$(git_push_branch "e2e: malicious digest change")"
+  record "- malicious commit \`${bad:0:12}\` sets deploy/prod to the imposter-signed digest"
   local start; start=$(date +%s)
   argo_refresh
+  wait_for 300 argo_at_revision "$bad" >/dev/null || fail "Argo CD never picked up commit $bad (at: $(argo '{.status.sync.revision}'))"
+  record "- Argo CD applied the malicious commit after $(( $(date +%s) - start )) s"
   blocked() { k -n prod get events --field-selector reason=FailedCreate -o jsonpath='{.items[*].message}' | grep -q "${tampered##*@}\|verify-release-images\|signature"; }
   if wait_for 300 blocked >/dev/null; then
     pass "Argo CD applied the commit, Kyverno refused the new pods after $(( $(date +%s) - start )) s"
@@ -190,9 +200,10 @@ s4() {
 
   log "Revert the malicious commit"
   set_prod_digest "$DIGEST"
-  git_push_branch "e2e: revert"
+  local good; good="$(git_push_branch "e2e: revert")"
   start=$(date +%s)
   argo_refresh
+  wait_for 300 argo_at_revision "$good" >/dev/null || fail "Argo CD never picked up the revert" 
   synced() { [[ "$(argo '{.status.sync.status}')" == Synced ]] && prod_healthy_on "$DIGEST"; }
   if wait_for 300 synced >/dev/null; then pass "after the revert Argo CD is Synced again in $(( $(date +%s) - start )) s"; else fail "not Synced after revert"; fi
 }
@@ -242,7 +253,8 @@ s6() {
   if [[ "$alerts" != *AdmissionControllerDown* ]]; then pass "admission controller healthy"; else fail "AdmissionControllerDown firing"; fi
 }
 
+# (if/then, not `cond && sN`: bash ignores `set -e` inside anything run from an && list)
 for n in 1 2 3 4 5 6; do
-  (( n >= ${E2E_FROM:-1} )) && "s$n"
+  if (( n >= ${E2E_FROM:-1} )); then "s$n"; fi
 done
 ok "All end-to-end checks passed. Results: reports/e2e-results.md"
