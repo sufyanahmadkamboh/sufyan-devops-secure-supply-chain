@@ -101,8 +101,8 @@ If the digest in `deploy/prod/kustomization.yaml` is still the all-zero placehol
 
 <details><summary>Answers</summary>
 
-1. Argo CD syncs the commit (it changes the Deployment). Kubernetes tries to create new pods; Kyverno refuses them because the image is not signed by the release workflow. The ReplicaSet shows `FailedCreate` events and the alert `UntrustedWorkloadBlocked` fires.
-2. `maxUnavailable: 0`: old pods are only removed after new ones are ready, and the new ones are never created.
+1. Argo CD applies the commit: it tries to update the Deployment. Kyverno refuses that update because the image is not signed by the release workflow, so the sync fails with the policy message in Argo CD's sync result, and the alert `UntrustedWorkloadBlocked` fires. The old Deployment and its pods stay as they were.
+2. The Deployment update itself was refused, so nothing changed in the cluster. Even if a new ReplicaSet were created some other way, `maxUnavailable: 0` keeps old pods until new ones are ready, and the new ones would never be admitted.
 3. `git revert` the `deploy: storefront-api <digest>` commit. Argo CD deploys the previous digest, which is still signed and verifiable.
 
 </details>

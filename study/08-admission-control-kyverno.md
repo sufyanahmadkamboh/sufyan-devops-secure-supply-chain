@@ -133,7 +133,7 @@ Why the long manifest? The prod namespace also has the built-in Kubernetes Pod S
 ## Common mistakes
 
 - Matching images with a glob like `.../storefront-api*` in a registry allowlist: it also matches `storefront-api-evil`.
-- Only checking Pods created with kubectl. Deployments create Pods through ReplicaSets, so a refused Pod shows up as a `FailedCreate` event on the ReplicaSet, not as an error on `kubectl apply`.
+- Looking for the refusal only on Pods. Kyverno also checks the images in pod controllers, so a bad Deployment is usually refused on `kubectl apply` (or in Argo CD's sync result). If a controller got in some other way, the refusal shows up as a `FailedCreate` event on its ReplicaSet instead.
 - Forgetting the Kyverno webhook can be unavailable at start-up; `helm --wait` returns before it serves requests (the platform script retries).
 - Writing `extractPayload(...).result` instead of `.predicate.result`.
 
@@ -149,6 +149,6 @@ Why the long manifest? The prod namespace also has the built-in Kubernetes Pod S
 
 1. A plain prefix would also match a look-alike repository such as `ghcr.io/sufyanahmadkamboh/storefront-api-evil`. The tests include exactly that case.
 2. Against the tag being moved after verification: the Pod is rewritten to the digest that was verified, so it runs exactly what was checked.
-3. Not necessarily: the image signature is verified on Pods. The Deployment and ReplicaSet are created, but the ReplicaSet's Pod creation is refused (`FailedCreate` events). In prod, `allowed-images` already refuses Deployments that use tags or foreign registries.
+3. Yes, in prod. The image policy also covers pod controllers, so Kyverno refuses the Deployment itself; the e2e test saw exactly this when Argo CD applied a malicious commit. As a second line, any Pod the ReplicaSet tries to create is checked again (`FailedCreate` events), and `allowed-images` refuses Deployments that use tags or foreign registries.
 
 </details>

@@ -33,6 +33,12 @@ git_push_branch() {  # message; prints the pushed commit
   [[ "$(git ls-remote "$remote" "refs/heads/$BRANCH" | cut -f1)" == "$head" ]] || fail "remote branch is not at $head"
   echo "$head"
 }
+# alert_firing NAME: true when Prometheus reports the alert in state "firing" (not just pending)
+alert_firing() {
+  # shellcheck disable=SC2016  # $a is a jq variable
+  k -n monitoring exec deploy/prometheus -- wget -qO- 'http://localhost:9090/api/v1/alerts' \
+    | tb jq -e --arg a "$1" 'any(.data.alerts[]; .labels.alertname == $a and .state == "firing")' >/dev/null
+}
 argo_at_revision() { [[ "$(argo '{.status.sync.revision}')" == "$1" ]]; }
 set_prod_digest() { sed -i -E "s|(    digest: )sha256:[a-f0-9]{64}|\1$1|" deploy/prod/kustomization.yaml; }
 
@@ -216,7 +222,7 @@ s4() {
   if wait_for 300 synced >/dev/null; then pass "after the revert Argo CD is Synced again in $(( $(date +%s) - start )) s"; else fail "not Synced after revert"; fi
   # The alert looks at the last 10 minutes of denials, so check it now, right after the attacks.
   start=$(date +%s)
-  blocked_alert() { k -n monitoring exec deploy/prometheus -- wget -qO- 'http://localhost:9090/api/v1/alerts' | grep -q '"alertname":"UntrustedWorkloadBlocked"'; }
+  blocked_alert() { alert_firing UntrustedWorkloadBlocked; }
   if wait_for 240 blocked_alert >/dev/null; then
     pass "alert UntrustedWorkloadBlocked raised $(( $(date +%s) - start )) s after the GitOps attack check (window: 10 min)"
   else
@@ -253,8 +259,7 @@ s5() {
   (( crit > 0 )) || fail "nginx:1.21.0 report shows no CRITICAL vulnerabilities"
   pass "Trivy Operator scanned the running nginx:1.21.0 after $(( $(date +%s) - start )) s: $crit CRITICAL vulnerabilities"
   start=$(date +%s)
-  firing() { k -n monitoring exec deploy/prometheus -- wget -qO- 'http://localhost:9090/api/v1/alerts' | grep -q '"alertname":"RunningImageHasCriticalVulnerabilities","[^}]*"state":"firing"\|"state":"firing"[^}]*RunningImageHasCriticalVulnerabilities'; }
-  if wait_for 900 firing >/dev/null; then
+  if wait_for 900 alert_firing RunningImageHasCriticalVulnerabilities >/dev/null; then
     pass "alert RunningImageHasCriticalVulnerabilities firing $(( $(date +%s) - start )) s after the report"
   else
     fail "RunningImageHasCriticalVulnerabilities did not fire"

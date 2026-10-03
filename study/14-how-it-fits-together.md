@@ -26,7 +26,7 @@ This chapter follows **one legitimate release** and then **four attackers** thro
 4. The job verifies its own output with the cluster's identity rule and uploads the `supply-chain-evidence` artifact.
 5. `e2e.yaml` runs the six sections of chapter 13 against this digest. All attacks blocked, control admitted.
 6. `promote` commits the digest to `deploy/prod/kustomization.yaml`.
-7. Argo CD syncs. The Deployment gets a new ReplicaSet; it asks for a pod.
+7. Argo CD syncs. Kyverno already checks the Deployment update (same image rules) and admits it. The Deployment gets a new ReplicaSet; it asks for a pod.
 8. PSA checks the pod spec (restricted). Kyverno runs `allowed-images`, `restricted-pods` and `verify-release-images`: signature by the right identity, provenance says this repository and `main`, signed scan has no CRITICAL/HIGH, signed SBOM exists. The image is rewritten to the verified digest.
 9. The pod starts. Only when it is ready is an old pod removed (`maxUnavailable: 0`).
 10. Trivy Operator scans the running image and keeps doing so. Grafana shows signature checks passing and nothing blocked.

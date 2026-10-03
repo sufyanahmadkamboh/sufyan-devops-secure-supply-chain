@@ -61,7 +61,7 @@ apart. Rolling a new rule out: add it to base, watch the sandbox reports, then r
 | Attacker has | Can they run code in prod? | Why not |
 |---|---|---|
 | a registry token (push to GHCR) | no | pushed images have no signature from release.yaml@main |
-| write access to `deploy/prod` (git) | no | Argo CD applies it, Kyverno refuses the pods; old pods keep serving |
+| write access to `deploy/prod` (git) | no | Argo CD tries to apply it, Kyverno refuses the Deployment update; old pods keep serving |
 | a malicious workflow file added to the repo (Megalodon-style) | no | its keyless certificate names *that* workflow, not release.yaml |
 | a forged provenance/scan document | no | attestations must be signed by the release identity |
 | a trusted image but a dangerous pod spec | no | restricted-pods (and Kubernetes Pod Security "restricted") |

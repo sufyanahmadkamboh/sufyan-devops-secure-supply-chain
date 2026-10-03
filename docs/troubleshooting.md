@@ -39,10 +39,13 @@ metrics port is 8080, not the service port 80. Scrape `trivy-operator.trivy-syst
 The prod namespace also enforces the Kubernetes Pod Security "restricted" level, which requires
 `seccompProfile: RuntimeDefault`. Without it, the API server refuses the pod before Kyverno looks at it.
 
-**A Deployment is accepted but no pods appear**
-Image verification runs on Pods. The Deployment and ReplicaSet are created, and the ReplicaSet's pod creation is
-refused. Look at `kubectl -n prod get events --field-selector reason=FailedCreate`. In GitOps this is the
-intended result: Argo CD applied the commit, and the cluster refused to run it.
+**Argo CD shows "SyncFailed" with "Policy verify-release-images failed"**
+The image policy also covers pod controllers (Deployments, ReplicaSets, StatefulSets, ...), so Kyverno refuses
+the Deployment update itself and Argo CD reports the refusal in its sync result. The old ReplicaSet keeps
+running. In GitOps this is the intended result: git said "run this", the cluster said no. Look at
+`kubectl -n argocd get application storefront-api -o jsonpath='{.status.operationState.syncResult.resources}'`.
+If a controller was admitted some other way, the pod creation is refused instead:
+`kubectl -n prod get events --field-selector reason=FailedCreate`.
 
 ## CI
 

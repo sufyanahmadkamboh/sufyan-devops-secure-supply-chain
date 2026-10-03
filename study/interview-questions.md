@@ -42,7 +42,7 @@
     <details><summary>Answer</summary>Run it in Audit mode first (here: the sandbox overlay with `validationActions: [Audit]`), read the PolicyReports, fix the workloads, then switch to Deny. Policy unit tests (`kyverno test`) in CI catch rule mistakes before any cluster sees them.</details>
 
 14. **Someone with write access commits a malicious digest to the GitOps folder. What happens?**
-    <details><summary>Answer</summary>Argo CD syncs it. Kubernetes tries to create new pods; Kyverno refuses them (no release signature). With `maxUnavailable: 0` no old pod is removed, so production keeps serving. `UntrustedWorkloadBlocked` fires. Fix with `git revert`. The e2e test proves this every release.</details>
+    <details><summary>Answer</summary>Argo CD tries to apply it. Kyverno refuses the Deployment update (no release signature), so the sync fails and the running pods are untouched; production keeps serving. If a controller slipped in another way, its pods would be refused at creation, and `maxUnavailable: 0` keeps the old ones. `UntrustedWorkloadBlocked` fires. Fix with `git revert`. The e2e test proves this every release.</details>
 
 15. **Why isn't the GitOps controller a security boundary?**
     <details><summary>Answer</summary>It applies whatever is in git. Anyone who can write to the deploy path controls it. Security decisions belong at admission, where every pod is checked regardless of who created it.</details>
