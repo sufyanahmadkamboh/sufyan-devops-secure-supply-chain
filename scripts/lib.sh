@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Shared helpers. On the host only Docker, kind and Bash are needed; every other CLI runs in the
 # pinned toolbox image (tools/toolbox), attached to the kind network.
-set -euo pipefail
+# Strict mode for scripts only: `source scripts/lib.sh` in your own terminal must not close it on the first error.
+[[ $- == *i* ]] || set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export MSYS_NO_PATHCONV=1   # Git Bash on Windows: keep /paths as they are
