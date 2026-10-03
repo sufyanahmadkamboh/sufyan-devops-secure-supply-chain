@@ -9,4 +9,4 @@ resources:
   - ../base
 images:
   - name: ghcr.io/sufyanahmadkamboh/storefront-api
-    digest: sha256:cb9b332ce38c9efbd2c88185dc1407183382deb32002cd8a50d8ca1891dd6d6d
+    digest: sha256:dafb80d3b31e3ed5a14a8d73511d6c6cea76178ebba7d65dabb7a143ea9fe05d
