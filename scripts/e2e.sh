@@ -237,14 +237,16 @@ s5() {
   fi
 
   start=$(date +%s)
-  scanned() { [[ -n "$(k -n sandbox get vulnerabilityreports -o name 2>/dev/null)" ]]; }
-  wait_for 900 scanned >/dev/null || fail "Trivy Operator produced no VulnerabilityReport"
+  # Wait for the report of THIS image (other images in the namespace may be scanned first).
+  nginx_report() { k -n sandbox get vulnerabilityreports -o json | tb jq -e '[.items[] | select(.report.artifact.repository | test("nginx"))] | length > 0' >/dev/null; }
+  wait_for 900 nginx_report >/dev/null || fail "Trivy Operator produced no VulnerabilityReport for nginx:1.21.0"
   local crit
   crit="$(k -n sandbox get vulnerabilityreports -o json | tb jq '[.items[] | select(.report.artifact.repository | test("nginx")) | .report.summary.criticalCount] | add // 0')"
+  (( crit > 0 )) || fail "nginx:1.21.0 report shows no CRITICAL vulnerabilities"
   pass "Trivy Operator scanned the running nginx:1.21.0 after $(( $(date +%s) - start )) s: $crit CRITICAL vulnerabilities"
   start=$(date +%s)
   firing() { k -n monitoring exec deploy/prometheus -- wget -qO- 'http://localhost:9090/api/v1/alerts' | grep -q '"alertname":"RunningImageHasCriticalVulnerabilities","[^}]*"state":"firing"\|"state":"firing"[^}]*RunningImageHasCriticalVulnerabilities'; }
-  if wait_for 600 firing >/dev/null; then
+  if wait_for 900 firing >/dev/null; then
     pass "alert RunningImageHasCriticalVulnerabilities firing $(( $(date +%s) - start )) s after the report"
   else
     fail "RunningImageHasCriticalVulnerabilities did not fire"
