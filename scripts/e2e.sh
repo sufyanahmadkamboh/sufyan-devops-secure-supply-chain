@@ -214,6 +214,14 @@ s4() {
   wait_for 300 argo_at_revision "$good" >/dev/null || fail "Argo CD never picked up the revert" 
   synced() { [[ "$(argo '{.status.sync.status}')" == Synced ]] && prod_healthy_on "$DIGEST"; }
   if wait_for 300 synced >/dev/null; then pass "after the revert Argo CD is Synced again in $(( $(date +%s) - start )) s"; else fail "not Synced after revert"; fi
+  # The alert looks at the last 10 minutes of denials, so check it now, right after the attacks.
+  start=$(date +%s)
+  blocked_alert() { k -n monitoring exec deploy/prometheus -- wget -qO- 'http://localhost:9090/api/v1/alerts' | grep -q '"alertname":"UntrustedWorkloadBlocked"'; }
+  if wait_for 240 blocked_alert >/dev/null; then
+    pass "alert UntrustedWorkloadBlocked raised $(( $(date +%s) - start )) s after the GitOps attack check (window: 10 min)"
+  else
+    fail "UntrustedWorkloadBlocked did not fire after the attacks"
+  fi
 }
 
 # ---- 5. sandbox: audit mode and continuous scanning --------------------------------------------
@@ -258,7 +266,6 @@ s6() {
   section "6. Monitoring"
   local alerts
   alerts="$(k -n monitoring exec deploy/prometheus -- wget -qO- 'http://localhost:9090/api/v1/alerts' | tb jq -r '[.data.alerts[] | select(.state=="firing") | .labels.alertname] | unique | join(", ")')"
-  if [[ "$alerts" == *UntrustedWorkloadBlocked* ]]; then pass "alert UntrustedWorkloadBlocked is firing after the attacks"; else fail "UntrustedWorkloadBlocked not firing (firing: $alerts)"; fi
   record "- firing alerts: $alerts"
   if [[ "$alerts" != *AdmissionControllerDown* ]]; then pass "admission controller healthy"; else fail "AdmissionControllerDown firing"; fi
 }
