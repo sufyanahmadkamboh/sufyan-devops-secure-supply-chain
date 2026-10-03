@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Thumbnail</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1280px;height:720px;overflow:hidden}
+body{background:radial-gradient(900px 600px at 85% 20%,rgba(59,130,214,.45),transparent 60%),radial-gradient(700px 500px at 0% 100%,rgba(255,107,107,.22),transparent 60%),#0b1420;
+ font-family:Inter,"Segoe UI",sans-serif;color:#f1f6fc;position:relative}
+.left{position:absolute;left:56px;top:60px;width:720px}
+.tag{display:inline-block;background:#ff6b6b;color:#0b1420;font-weight:900;font-size:30px;padding:8px 18px;border-radius:12px;transform:rotate(-2deg)}
+h1{font-size:104px;line-height:.98;font-weight:900;letter-spacing:-3px;margin-top:26px}
+h1 .no{color:#4cc286}
+.sub{font-size:36px;font-weight:800;color:#ffc94d;margin-top:22px}
+.chips{position:absolute;left:56px;bottom:46px;display:flex;gap:14px}
+.chips span{background:#13233a;border:3px solid #3b82d6;border-radius:40px;padding:10px 22px;font-size:27px;font-weight:800}
+.art{position:absolute;right:40px;top:70px;width:470px;height:470px}
+</style></head><body>
+<div class="left">
+  <div class="tag">STOLEN REGISTRY PASSWORD?</div>
+  <h1>Your cluster<br>still says <span class="no">NO</span></h1>
+  <div class="sub">Kubernetes supply chain security</div>
+</div>
+<svg class="art" viewBox="0 0 470 470">
+  <circle cx="235" cy="235" r="215" fill="#13233a" stroke="#4cc286" stroke-width="10"/>
+  <text x="235" y="300" text-anchor="middle" font-size="230">🛡️</text>
+  <g transform="translate(300,300)"><circle r="85" fill="#2a1520" stroke="#ff6b6b" stroke-width="8"/><text y="38" text-anchor="middle" font-size="100">🔑</text>
+  <line x1="-60" y1="-60" x2="60" y2="60" stroke="#ff6b6b" stroke-width="16" stroke-linecap="round"/></g>
+</svg>
+<div class="chips"><span>Sigstore</span><span>Kyverno</span><span>SLSA</span><span>Argo CD</span><span>Trivy</span></div>
+<script>window.__ready = true;</script>
+</body></html>

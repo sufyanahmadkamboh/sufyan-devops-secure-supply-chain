@@ -1,0 +1,2 @@
+📚 Free 60-page study guide with 9 hands-on labs and 25 interview questions: https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/tree/main/study
+Which attack surprised you most? For me it was the imposter: a perfectly valid Sigstore signature that is still refused, because it came from the wrong workflow (18:00 → the attack test).

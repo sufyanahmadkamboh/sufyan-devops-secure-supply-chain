@@ -1,0 +1,1463 @@
+1
+00:00:00,500 --> 00:00:03,536
+If someone stole your container registry password tonight,
+
+2
+00:00:03,536 --> 00:00:07,095
+could they run their own code in your production Kubernetes cluster?
+
+3
+00:00:07,633 --> 00:00:10,299
+For most teams, the honest answer is yes.
+
+4
+00:00:10,299 --> 00:00:16,150
+The cluster runs whatever image sits in the company registry, because the token was valid.
+
+5
+00:00:16,700 --> 00:00:20,577
+In this video I will show you a project that changes that answer to no.
+
+6
+00:00:20,577 --> 00:00:24,946
+Production only runs code that it can prove came from your own release pipeline.
+
+7
+00:00:25,500 --> 00:00:27,139
+And I do not just claim it.
+
+8
+00:00:27,139 --> 00:00:33,150
+I attack it seven different ways on every single release, and I will show you the measured results.
+
+9
+00:00:33,700 --> 00:00:36,944
+By the end, you will understand every tool in this setup:
+
+10
+00:00:36,944 --> 00:00:41,951
+what it does, how it is configured, and how to roll it out in a real production cluster.
+
+11
+00:00:41,951 --> 00:00:47,528
+Everything is open source, and the full code and a free study guide are linked in the description.
+
+12
+00:00:49,267 --> 00:00:51,585
+Here is what we will cover.
+
+13
+00:00:51,585 --> 00:00:57,596
+First, why this problem matters, with real attacks from 2025 and 2026.
+
+14
+00:00:58,133 --> 00:01:01,755
+Then the idea behind the solution, and the architecture.
+
+15
+00:01:02,300 --> 00:01:05,346
+Then every tool, one by one.
+
+16
+00:01:05,346 --> 00:01:08,500
+Docker and distroless images.
+
+17
+00:01:08,500 --> 00:01:10,132
+GitHub Actions.
+
+18
+00:01:10,132 --> 00:01:10,785
+Trivy.
+
+19
+00:01:10,785 --> 00:01:11,329
+Syft.
+
+20
+00:01:11,329 --> 00:01:13,069
+SLSA provenance.
+
+21
+00:01:13,069 --> 00:01:15,244
+And Sigstore cosign.
+
+22
+00:01:15,800 --> 00:01:17,969
+Kyverno for admission control.
+
+23
+00:01:17,969 --> 00:01:20,355
+Argo CD and Kustomize for GitOps.
+
+24
+00:01:20,355 --> 00:01:24,260
+Trivy Operator, Prometheus and Grafana for monitoring.
+
+25
+00:01:24,260 --> 00:01:29,105
+And kind, for an end to end attack test that runs on every release.
+
+26
+00:01:29,667 --> 00:01:35,713
+Finally, the measured results, and a step by step plan to use this in your own production cluster.
+
+27
+00:01:37,467 --> 00:01:39,261
+Let us start with the problem.
+
+28
+00:01:39,261 --> 00:01:43,928
+A Kubernetes cluster normally trusts any image it can pull from your registry.
+
+29
+00:01:43,928 --> 00:01:46,142
+But a registry only proves one thing:
+
+30
+00:01:46,142 --> 00:01:49,013
+that someone with a valid token pushed an image.
+
+31
+00:01:49,567 --> 00:01:54,568
+It does not prove that your reviewed code went into that image, or that your pipeline built it.
+
+32
+00:01:54,568 --> 00:01:57,885
+And a vulnerability scan in your pipeline does not help either,
+
+33
+00:01:57,885 --> 00:02:00,886
+if the image that runs is not the image that was scanned.
+
+34
+00:02:01,433 --> 00:02:02,801
+Attackers know this.
+
+35
+00:02:02,801 --> 00:02:06,424
+In 2025, the version tags of a popular GitHub Action,
+
+36
+00:02:06,424 --> 00:02:10,457
+tj-actions changed files, were moved to a malicious commit.
+
+37
+00:02:10,457 --> 00:02:15,380
+Thousands of pipelines ran the attacker's code and leaked their secrets.
+
+38
+00:02:15,933 --> 00:02:24,044
+In 2026, the Megalodon campaign pushed malicious workflow files into more than five thousand repositories in about six hours.
+
+39
+00:02:24,044 --> 00:02:27,678
+Those workflows ran with each repository's own identity.
+
+40
+00:02:28,233 --> 00:02:31,738
+And the simplest attack of all is a leaked registry token.
+
+41
+00:02:31,738 --> 00:02:35,545
+With it, anyone can push an image under the same name as yours.
+
+42
+00:02:35,545 --> 00:02:36,995
+So the real question is:
+
+43
+00:02:36,995 --> 00:02:40,440
+how can the cluster know where an image really came from?
+
+44
+00:02:42,200 --> 00:02:43,304
+Here is the idea.
+
+45
+00:02:43,304 --> 00:02:44,602
+Think of a pharmacy.
+
+46
+00:02:44,602 --> 00:02:49,406
+A pharmacist does not hand out a medicine just because it is on the shelf.
+
+47
+00:02:49,406 --> 00:02:52,781
+They check the factory seal and the paperwork first.
+
+48
+00:02:53,333 --> 00:02:55,710
+We do the same with container images.
+
+49
+00:02:55,710 --> 00:02:58,536
+Every image our pipeline builds gets a seal:
+
+50
+00:02:58,536 --> 00:03:02,133
+a cryptographic signature, made by our release workflow.
+
+51
+00:03:02,667 --> 00:03:04,648
+Plus three signed documents.
+
+52
+00:03:04,648 --> 00:03:08,043
+First, an origin certificate, called provenance,
+
+53
+00:03:08,043 --> 00:03:12,571
+that says which repository, branch and commit it was built from.
+
+54
+00:03:13,133 --> 00:03:14,809
+Second, a lab test:
+
+55
+00:03:14,809 --> 00:03:17,278
+a signed vulnerability scan.
+
+56
+00:03:17,833 --> 00:03:19,732
+Third, an ingredient list:
+
+57
+00:03:19,732 --> 00:03:25,649
+a software bill of materials, or SBOM, that lists every library inside the image.
+
+58
+00:03:26,200 --> 00:03:29,491
+At the door of the cluster sits the pharmacist:
+
+59
+00:03:29,491 --> 00:03:30,051
+Kyverno.
+
+60
+00:03:30,051 --> 00:03:34,673
+Before any pod starts, it checks the seal and all three documents.
+
+61
+00:03:34,673 --> 00:03:36,353
+No valid papers, no pod.
+
+62
+00:03:36,353 --> 00:03:40,834
+It does not matter who pushed the image, or how it got into git.
+
+63
+00:03:42,600 --> 00:03:44,420
+Here is the whole architecture.
+
+64
+00:03:44,420 --> 00:03:48,411
+It starts when a reviewed pull request is merged to the main branch.
+
+65
+00:03:48,967 --> 00:03:52,453
+The release workflow in GitHub Actions builds the image,
+
+66
+00:03:52,453 --> 00:03:57,993
+runs the unit tests, scans it, and pushes it to the GitHub container registry, by digest.
+
+67
+00:03:58,533 --> 00:04:04,339
+Then it creates the SBOM, the scan report and the provenance, and signs everything with Sigstore.
+
+68
+00:04:04,339 --> 00:04:06,315
+There is no private key anywhere.
+
+69
+00:04:06,315 --> 00:04:12,540
+GitHub vouches for the workflow's identity, and every signature is written to a public log called Rekor.
+
+70
+00:04:13,100 --> 00:04:18,248
+Next, an end to end test creates a brand new Kubernetes cluster and attacks the new release.
+
+71
+00:04:18,248 --> 00:04:24,125
+Only if every attack fails does the pipeline commit the new image digest to the production folder in git.
+
+72
+00:04:24,667 --> 00:04:28,101
+Argo CD sees that commit and applies it to the cluster.
+
+73
+00:04:28,667 --> 00:04:34,283
+Every pod passes through Kyverno, which verifies the signature and the three documents.
+
+74
+00:04:34,283 --> 00:04:36,026
+Only then does the pod run.
+
+75
+00:04:36,567 --> 00:04:39,504
+And because new vulnerabilities are published every day,
+
+76
+00:04:39,504 --> 00:04:42,074
+Trivy Operator keeps scanning the running images,
+
+77
+00:04:42,074 --> 00:04:46,218
+while Prometheus and Grafana alert on blocked attempts and new critical issues.
+
+78
+00:04:47,967 --> 00:04:51,809
+Let us go through every tool, starting with what we ship:
+
+79
+00:04:51,809 --> 00:04:54,573
+a small Go service called storefront API.
+
+80
+00:04:54,573 --> 00:04:56,000
+The Dockerfile is a two stage build.
+
+81
+00:04:56,000 --> 00:05:01,516
+Notice that both base images are pinned by digest, not only by tag.
+
+82
+00:05:02,067 --> 00:05:06,577
+The unit tests run inside the build, so a failing test means no image.
+
+83
+00:05:06,577 --> 00:05:12,570
+The binary is static, built with trim path and an empty build ID, so builds are reproducible.
+
+84
+00:05:13,133 --> 00:05:15,610
+The final image is distroless:
+
+85
+00:05:15,610 --> 00:05:21,473
+no shell, no package manager, and it runs as user 65532, never as root.
+
+86
+00:05:22,033 --> 00:05:24,441
+The whole image is only 3.7 megabytes.
+
+87
+00:05:24,441 --> 00:05:27,418
+Why does this matter for supply chain security?
+
+88
+00:05:27,418 --> 00:05:30,206
+Fewer components mean fewer vulnerabilities,
+
+89
+00:05:30,206 --> 00:05:35,528
+which keeps the scan gate green, and leaves an attacker almost nothing to work with.
+
+90
+00:05:37,267 --> 00:05:38,705
+Next, GitHub Actions.
+
+91
+00:05:38,705 --> 00:05:40,692
+This is the release workflow.
+
+92
+00:05:40,692 --> 00:05:44,597
+And here is the most important idea of the whole project:
+
+93
+00:05:44,597 --> 00:05:47,269
+this workflow file is the trust anchor.
+
+94
+00:05:47,269 --> 00:05:49,735
+Production trusts exactly one thing:
+
+95
+00:05:49,735 --> 00:05:53,092
+signatures made by this file, on the main branch.
+
+96
+00:05:53,633 --> 00:05:56,019
+At the top, permissions is empty.
+
+97
+00:05:56,019 --> 00:06:00,068
+No job gets any access unless it explicitly asks for it.
+
+98
+00:06:00,633 --> 00:06:03,475
+The build job asks for exactly three things:
+
+99
+00:06:03,475 --> 00:06:08,125
+read the code, write packages so it can push the image, and an ID token.
+
+100
+00:06:08,667 --> 00:06:11,970
+That ID token is what makes keyless signing possible.
+
+101
+00:06:11,970 --> 00:06:14,713
+GitHub issues a short lived token that says:
+
+102
+00:06:14,713 --> 00:06:19,326
+I am the release workflow, of this repository, running on the main branch.
+
+103
+00:06:19,867 --> 00:06:21,728
+Then the jobs run in order:
+
+104
+00:06:21,728 --> 00:06:25,243
+build and sign, then the attack test, then promote.
+
+105
+00:06:25,243 --> 00:06:28,206
+Promote needs both earlier jobs to succeed.
+
+106
+00:06:29,967 --> 00:06:34,787
+Because the pipeline is the trust anchor, the pipeline itself is hardened.
+
+107
+00:06:34,787 --> 00:06:38,696
+This is exactly where the 2025 tag attack would have failed.
+
+108
+00:06:39,233 --> 00:06:43,090
+Every action is pinned to a full commit SHA, not to a tag.
+
+109
+00:06:43,090 --> 00:06:45,749
+A tag can be moved, a commit SHA cannot.
+
+110
+00:06:45,749 --> 00:06:50,470
+A small script in CI fails the build if anyone adds an unpinned action.
+
+111
+00:06:51,033 --> 00:06:54,113
+No expressions are placed directly inside run blocks.
+
+112
+00:06:54,113 --> 00:06:56,901
+Values are passed through environment variables,
+
+113
+00:06:56,901 --> 00:07:01,085
+which closes the template injection hole that many workflow attacks use.
+
+114
+00:07:01,633 --> 00:07:04,267
+Checkout does not leave its token on disk.
+
+115
+00:07:04,267 --> 00:07:08,971
+And tools like cosign, Syft and Trivy are downloaded with a checksum check,
+
+116
+00:07:08,971 --> 00:07:11,668
+instead of adding more third party actions.
+
+117
+00:07:12,233 --> 00:07:16,904
+On every push, zizmor and actionlint scan the workflows for security mistakes.
+
+118
+00:07:16,904 --> 00:07:22,113
+And CODEOWNERS plus Dependabot make sure changes are reviewed and pins stay up to date.
+
+119
+00:07:23,867 --> 00:07:27,395
+Tool number three is Trivy, a vulnerability scanner.
+
+120
+00:07:27,395 --> 00:07:29,430
+It runs twice in the pipeline.
+
+121
+00:07:29,430 --> 00:07:30,516
+First as a gate.
+
+122
+00:07:30,516 --> 00:07:34,586
+If the image has any fixable critical or high vulnerability,
+
+123
+00:07:34,586 --> 00:07:38,318
+exit code one stops the release, and nothing is pushed.
+
+124
+00:07:38,867 --> 00:07:43,506
+Second, after the push, Trivy writes its report in the cosign vuln format.
+
+125
+00:07:43,506 --> 00:07:49,273
+That report gets signed, so the cluster can read a scan result that nobody could have faked.
+
+126
+00:07:49,833 --> 00:07:50,420
+Why both?
+
+127
+00:07:50,420 --> 00:07:53,025
+The gate gives developers fast feedback.
+
+128
+00:07:53,025 --> 00:07:58,628
+The signed report is evidence that travels with the image, all the way to the cluster.
+
+129
+00:08:00,367 --> 00:08:04,623
+Tool four is Syft, which creates the software bill of materials.
+
+130
+00:08:04,623 --> 00:08:11,008
+It reads the pushed image, by digest, and lists every component inside, in the CycloneDX format.
+
+131
+00:08:11,567 --> 00:08:12,765
+Why do we need it?
+
+132
+00:08:12,765 --> 00:08:17,358
+When the next big vulnerability is announced, the question is always:
+
+133
+00:08:17,358 --> 00:08:18,423
+are we affected?
+
+134
+00:08:18,423 --> 00:08:23,881
+With an SBOM for every image, the answer is a search, not a week of investigation.
+
+135
+00:08:24,433 --> 00:08:28,499
+Regulations like the EU Cyber Resilience Act also ask for SBOMs.
+
+136
+00:08:28,499 --> 00:08:34,408
+Here the SBOM is signed and attached to the image, and Kyverno refuses any image without one.
+
+137
+00:08:36,167 --> 00:08:40,409
+Tool five is provenance, in the SLSA version one format.
+
+138
+00:08:40,409 --> 00:08:46,241
+SLSA, pronounced salsa, is a framework that describes how software was built.
+
+139
+00:08:46,800 --> 00:08:52,393
+Our provenance records the repository, the branch, and the workflow file that ran the build.
+
+140
+00:08:52,393 --> 00:08:57,196
+Later, Kyverno checks that the repository is ours, and that the branch is main.
+
+141
+00:08:57,733 --> 00:09:01,726
+It also records the exact git commit, and a link to the workflow run,
+
+142
+00:09:01,726 --> 00:09:05,893
+so anyone can trace a running pod back to the line of code it came from.
+
+143
+00:09:06,433 --> 00:09:08,842
+On its own, this is just a JSON file.
+
+144
+00:09:08,842 --> 00:09:11,641
+What makes it trustworthy is the next tool:
+
+145
+00:09:11,641 --> 00:09:16,653
+it is signed by the release workflow, so nobody else can produce a valid one.
+
+146
+00:09:18,400 --> 00:09:20,450
+Now the heart of the project:
+
+147
+00:09:20,450 --> 00:09:23,561
+Sigstore, and its command line tool, cosign.
+
+148
+00:09:23,561 --> 00:09:26,106
+Classic signing needs a private key.
+
+149
+00:09:26,106 --> 00:09:29,640
+Someone has to store it, protect it and rotate it.
+
+150
+00:09:29,640 --> 00:09:32,115
+And a stolen key can sign anything.
+
+151
+00:09:32,667 --> 00:09:34,730
+Keyless signing removes the key.
+
+152
+00:09:34,730 --> 00:09:40,081
+The workflow shows its GitHub ID token to Fulcio, Sigstore's certificate authority.
+
+153
+00:09:40,633 --> 00:09:44,784
+Fulcio issues a certificate that is valid for only ten minutes.
+
+154
+00:09:44,784 --> 00:09:47,947
+Inside the certificate is the workflow identity:
+
+155
+00:09:47,947 --> 00:09:51,505
+this repository, release dot yaml, on the main branch.
+
+156
+00:09:52,067 --> 00:09:55,313
+cosign signs the image digest with that certificate,
+
+157
+00:09:55,313 --> 00:10:00,993
+stores the signature next to the image, and records it in Rekor, a public transparency log.
+
+158
+00:10:00,993 --> 00:10:05,113
+Anyone can audit that log, and nobody can quietly remove an entry.
+
+159
+00:10:05,667 --> 00:10:08,217
+In the workflow, that is four commands:
+
+160
+00:10:08,217 --> 00:10:13,645
+sign the image, then attest the provenance, the vulnerability report, and the SBOM.
+
+161
+00:10:13,645 --> 00:10:16,196
+One detail cost me real debugging time:
+
+162
+00:10:16,196 --> 00:10:20,054
+cosign version three writes a new bundle format by default,
+
+163
+00:10:20,054 --> 00:10:23,913
+and Kyverno 1.19 did not find those signatures in my tests.
+
+164
+00:10:23,913 --> 00:10:28,948
+So the pipeline uses the classic format, with new bundle format set to false.
+
+165
+00:10:30,700 --> 00:10:32,580
+Tool seven is the registry:
+
+166
+00:10:32,580 --> 00:10:34,669
+the GitHub container registry.
+
+167
+00:10:34,669 --> 00:10:38,151
+The important concept here is tags versus digests.
+
+168
+00:10:38,151 --> 00:10:41,006
+A tag, like version one, is just a label.
+
+169
+00:10:41,006 --> 00:10:45,115
+Anyone with write access can point it at different content.
+
+170
+00:10:45,667 --> 00:10:49,722
+A digest is the SHA 256 hash of the image content.
+
+171
+00:10:49,722 --> 00:10:52,967
+If one byte changes, the digest changes.
+
+172
+00:10:52,967 --> 00:10:59,131
+So signatures are made on digests, git stores digests, and pods run digests.
+
+173
+00:10:59,667 --> 00:11:04,651
+The signature and the three attestations are stored right next to the image in the same registry,
+
+174
+00:11:04,651 --> 00:11:06,963
+so the proof travels wherever the image goes.
+
+175
+00:11:08,700 --> 00:11:11,026
+Tool eight is the guard at the door:
+
+176
+00:11:11,026 --> 00:11:11,543
+Kyverno.
+
+177
+00:11:11,543 --> 00:11:16,325
+Every request to create or change a pod goes to the Kubernetes API server.
+
+178
+00:11:16,867 --> 00:11:22,521
+Before the object is stored, the API server asks admission webhooks for their opinion.
+
+179
+00:11:22,521 --> 00:11:24,033
+Kyverno is one of them.
+
+180
+00:11:24,567 --> 00:11:27,735
+If Kyverno says no, the pod is never created.
+
+181
+00:11:27,735 --> 00:11:34,986
+It does not matter whether the request came from a person with kubectl, from a CI job, or from Argo CD.
+
+182
+00:11:35,533 --> 00:11:39,154
+This project uses the new Kyverno 1.19 policy types,
+
+183
+00:11:39,154 --> 00:11:43,889
+written in CEL, the same expression language Kubernetes itself uses.
+
+184
+00:11:43,889 --> 00:11:46,883
+The older ClusterPolicy type is deprecated.
+
+185
+00:11:48,633 --> 00:11:50,390
+Here is the main policy:
+
+186
+00:11:50,390 --> 00:11:51,000
+verify release images.
+
+187
+00:11:51,000 --> 00:11:56,757
+It only applies to namespaces with the label enforce equals true.
+
+188
+00:11:56,757 --> 00:11:59,538
+So you decide, namespace by namespace.
+
+189
+00:12:00,100 --> 00:12:02,501
+The attestor is the most important part.
+
+190
+00:12:02,501 --> 00:12:02,981
+It says:
+
+191
+00:12:02,981 --> 00:12:07,122
+the signature must come from a Sigstore certificate issued by GitHub,
+
+192
+00:12:07,122 --> 00:12:11,384
+for the subject release dot yaml on the main branch of this repository.
+
+193
+00:12:11,384 --> 00:12:13,845
+And it must be recorded in the Rekor log.
+
+194
+00:12:14,400 --> 00:12:17,413
+Then we declare the three documents we expect:
+
+195
+00:12:17,413 --> 00:12:21,016
+the provenance, the vulnerability report, and the SBOM.
+
+196
+00:12:21,567 --> 00:12:25,822
+Mutate digest rewrites the pod's image to the exact digest that was verified.
+
+197
+00:12:25,822 --> 00:12:29,911
+So nobody can move a tag between the check and the start of the container.
+
+198
+00:12:30,467 --> 00:12:32,198
+Finally, the validations.
+
+199
+00:12:32,198 --> 00:12:33,999
+The signature must verify.
+
+200
+00:12:33,999 --> 00:12:37,461
+The provenance must name this repository and main.
+
+201
+00:12:37,461 --> 00:12:41,270
+The signed scan must have no critical or high findings.
+
+202
+00:12:41,270 --> 00:12:43,417
+And the signed SBOM must exist.
+
+203
+00:12:43,417 --> 00:12:48,473
+Every rule has a clear message, so a refused developer knows exactly why.
+
+204
+00:12:50,233 --> 00:12:52,645
+Two more policies close the simple gaps.
+
+205
+00:12:52,645 --> 00:12:57,951
+Allowed images says that pods in production may only use images from our own repository.
+
+206
+00:12:57,951 --> 00:13:03,438
+A Docker Hub image is refused in about half a second, before any signature is even checked.
+
+207
+00:13:04,000 --> 00:13:06,752
+It also requires workloads stored in git,
+
+208
+00:13:06,752 --> 00:13:11,585
+like Deployments, to reference images by digest, never by a movable tag.
+
+209
+00:13:12,133 --> 00:13:17,330
+Restricted pods covers the case where a trusted image is started in a dangerous way:
+
+210
+00:13:17,330 --> 00:13:21,413
+as root, privileged, with host access, or without resource limits.
+
+211
+00:13:21,967 --> 00:13:25,827
+The production namespace switches all of this on with two labels.
+
+212
+00:13:25,827 --> 00:13:31,708
+One for our Kyverno policies, and one for the Pod Security admission that is built into Kubernetes,
+
+213
+00:13:31,708 --> 00:13:33,133
+at the restricted level.
+
+214
+00:13:33,133 --> 00:13:35,450
+Two independent locks on the same door.
+
+215
+00:13:37,200 --> 00:13:41,940
+How do you introduce rules like these without breaking every team on day one?
+
+216
+00:13:41,940 --> 00:13:42,925
+With audit mode.
+
+217
+00:13:43,467 --> 00:13:47,707
+A Kustomize overlay creates a copy of every policy with the suffix audit,
+
+218
+00:13:47,707 --> 00:13:52,296
+and patches the action from Deny to Audit, for namespaces with the label audit.
+
+219
+00:13:52,833 --> 00:13:54,861
+In audit mode nothing is blocked.
+
+220
+00:13:54,861 --> 00:13:58,241
+Violations show up in policy reports and in Prometheus.
+
+221
+00:13:58,241 --> 00:14:04,078
+Teams fix what the reports find, and then you switch the namespace label from audit to enforce.
+
+222
+00:14:04,633 --> 00:14:08,558
+In the test, an unsigned image runs fine in the sandbox namespace,
+
+223
+00:14:08,558 --> 00:14:12,483
+and the policy reports list its violations eighteen seconds later.
+
+224
+00:14:14,233 --> 00:14:17,269
+Tool nine is GitOps, with Argo CD and Kustomize.
+
+225
+00:14:17,269 --> 00:14:22,266
+The production folder in git is the single source of truth for what should run.
+
+226
+00:14:22,800 --> 00:14:26,134
+The production kustomization pins the image by digest.
+
+227
+00:14:26,134 --> 00:14:31,506
+Only the release pipeline changes this line, and only after the attack test has passed.
+
+228
+00:14:32,067 --> 00:14:37,706
+Argo CD watches that folder on main, with automated sync, prune and self heal.
+
+229
+00:14:37,706 --> 00:14:42,116
+If someone changes the cluster by hand, Argo CD puts it back.
+
+230
+00:14:42,667 --> 00:14:44,964
+And here is a key design decision:
+
+231
+00:14:44,964 --> 00:14:47,465
+Argo CD is not trusted with security.
+
+232
+00:14:47,465 --> 00:14:54,493
+If an attacker manages to commit a bad digest, Argo CD will try to apply it, and Kyverno will refuse it.
+
+233
+00:14:54,493 --> 00:14:57,061
+We test exactly that on every release.
+
+234
+00:14:58,800 --> 00:15:00,165
+This is the promote job.
+
+235
+00:15:00,165 --> 00:15:03,748
+It only runs when the build and the attack test both succeeded,
+
+236
+00:15:03,748 --> 00:15:06,820
+and its only permission is to write to the repository.
+
+237
+00:15:07,367 --> 00:15:11,389
+It replaces the digest in the production kustomization with the new,
+
+238
+00:15:11,389 --> 00:15:14,761
+verified digest, and commits it to main as a release bot.
+
+239
+00:15:15,300 --> 00:15:17,330
+That commit is the deployment.
+
+240
+00:15:17,330 --> 00:15:19,698
+To roll back, you simply revert it.
+
+241
+00:15:19,698 --> 00:15:25,450
+Argo CD then deploys the previous digest, which is still signed and still verifiable.
+
+242
+00:15:27,200 --> 00:15:29,773
+Signing proves where an image came from.
+
+243
+00:15:29,773 --> 00:15:34,533
+It does not protect you from a vulnerability that is published next month.
+
+244
+00:15:34,533 --> 00:15:36,335
+That is the job of tool ten:
+
+245
+00:15:36,335 --> 00:15:37,300
+Trivy Operator.
+
+246
+00:15:37,833 --> 00:15:44,670
+It runs inside the cluster, watches the running workloads in prod and in sandbox, and re-scans their images.
+
+247
+00:15:44,670 --> 00:15:48,785
+The results become vulnerability reports, and Prometheus metrics.
+
+248
+00:15:49,333 --> 00:15:53,203
+In the test, an old nginx image is started in the sandbox.
+
+249
+00:15:53,203 --> 00:15:59,007
+Trivy Operator found twenty seven critical vulnerabilities in it, ninety seconds later.
+
+250
+00:16:00,767 --> 00:16:02,391
+Tool eleven is Prometheus.
+
+251
+00:16:02,391 --> 00:16:08,326
+It collects the metrics from Kyverno and from Trivy Operator, and three alert rules watch them.
+
+252
+00:16:08,867 --> 00:16:13,267
+Untrusted workload blocked fires when anything is refused in production.
+
+253
+00:16:13,267 --> 00:16:18,033
+In a healthy pipeline that never happens, so even one refusal is worth a look.
+
+254
+00:16:18,567 --> 00:16:25,211
+Running image has critical vulnerabilities fires when Trivy Operator finds critical issues in a running image for five minutes.
+
+255
+00:16:25,767 --> 00:16:30,520
+And admission controller down fires when Kyverno itself disappears.
+
+256
+00:16:30,520 --> 00:16:32,719
+Remember, Kyverno fails closed:
+
+257
+00:16:32,719 --> 00:16:35,486
+when it is down, no new pods can start.
+
+258
+00:16:36,033 --> 00:16:40,155
+All three rules have unit tests that run with promtool in CI.
+
+259
+00:16:40,155 --> 00:16:44,210
+And those tests, together with a live demo, found real bugs.
+
+260
+00:16:45,967 --> 00:16:48,559
+Here is an honest lesson from building this.
+
+261
+00:16:48,559 --> 00:16:53,626
+My first version of the alert only counted refusals from Kyverno's validating webhook.
+
+262
+00:16:54,167 --> 00:16:57,725
+But the image policy also rewrites images to their digest,
+
+263
+00:16:57,725 --> 00:17:01,160
+so signature failures are refused in the mutating phase.
+
+264
+00:17:01,160 --> 00:17:04,412
+The alert missed exactly the most important refusals:
+
+265
+00:17:04,412 --> 00:17:06,191
+unsigned and imposter images.
+
+266
+00:17:06,191 --> 00:17:09,933
+A local demo showed ten refusals where nineteen had happened.
+
+267
+00:17:10,467 --> 00:17:11,357
+The second bug:
+
+268
+00:17:11,357 --> 00:17:15,213
+Prometheus' increase function cannot see the very first refusals,
+
+269
+00:17:15,213 --> 00:17:20,138
+because Kyverno creates the counter when it already has a value, for example three.
+
+270
+00:17:20,700 --> 00:17:24,167
+Both are fixed, and both cases now have unit tests.
+
+271
+00:17:24,167 --> 00:17:25,594
+The lesson is simple:
+
+272
+00:17:25,594 --> 00:17:30,625
+test your alerts against real attacks, not just against your expectations.
+
+273
+00:17:32,367 --> 00:17:34,836
+Grafana shows it all on one dashboard.
+
+274
+00:17:34,836 --> 00:17:37,110
+This is the local lab after a demo.
+
+275
+00:17:37,110 --> 00:17:37,824
+At the top:
+
+276
+00:17:37,824 --> 00:17:41,268
+what was blocked in production, the signature checks,
+
+277
+00:17:41,268 --> 00:17:45,686
+running images with critical vulnerabilities, and the firing alerts.
+
+278
+00:17:46,233 --> 00:17:49,560
+Below, refusals over time, image verification results,
+
+279
+00:17:49,560 --> 00:17:53,872
+vulnerabilities per image, and the health of the admission controller.
+
+280
+00:17:53,872 --> 00:17:59,478
+The dashboard is provisioned from a JSON file in git, like everything else in this project.
+
+281
+00:18:01,233 --> 00:18:03,773
+Tool twelve is kind, Kubernetes in Docker.
+
+282
+00:18:03,773 --> 00:18:06,977
+It powers the part that makes this project different:
+
+283
+00:18:06,977 --> 00:18:12,963
+an end to end attack test that runs on every release, on a brand new cluster inside GitHub Actions.
+
+284
+00:18:13,500 --> 00:18:16,229
+Section one builds the whole platform:
+
+285
+00:18:16,229 --> 00:18:21,327
+Kyverno, the policies, Argo CD, Trivy Operator, Prometheus and Grafana.
+
+286
+00:18:21,327 --> 00:18:24,200
+That takes about two and a half minutes.
+
+287
+00:18:24,733 --> 00:18:29,313
+Section two deploys the new signed release the real way, through Argo CD.
+
+288
+00:18:29,867 --> 00:18:32,879
+Section three attacks the cluster door directly.
+
+289
+00:18:32,879 --> 00:18:37,961
+It pushes attacker images into our real registry, which simulates a stolen token.
+
+290
+00:18:38,500 --> 00:18:43,264
+Section four attacks through git, with a malicious commit to the production folder.
+
+291
+00:18:43,264 --> 00:18:48,086
+Section five checks audit mode and live scanning, and section six checks the alerts.
+
+292
+00:18:48,633 --> 00:18:53,274
+If anything is not refused, the job fails, and the promote job never runs.
+
+293
+00:18:53,274 --> 00:18:57,225
+A release that weakens the defences can never reach production.
+
+294
+00:18:58,967 --> 00:19:01,945
+The most interesting attack is the imposter.
+
+295
+00:19:01,945 --> 00:19:03,908
+It copies the Megalodon idea:
+
+296
+00:19:03,908 --> 00:19:08,443
+a second workflow file in the same repository, called e2e dot yaml.
+
+297
+00:19:09,000 --> 00:19:14,281
+That workflow takes a tampered image and signs it with a completely valid Sigstore signature.
+
+298
+00:19:14,281 --> 00:19:17,688
+It even attaches forged provenance and a clean looking scan.
+
+299
+00:19:17,688 --> 00:19:21,095
+The test first verifies that this signature really is valid.
+
+300
+00:19:21,633 --> 00:19:25,326
+Kyverno still refuses it, in about two seconds.
+
+301
+00:19:25,326 --> 00:19:25,640
+Why?
+
+302
+00:19:25,640 --> 00:19:30,040
+The certificate says e2e dot yaml, not release dot yaml.
+
+303
+00:19:30,040 --> 00:19:32,711
+Signed is not the same as trusted.
+
+304
+00:19:32,711 --> 00:19:34,990
+The policy checks who signed.
+
+305
+00:19:36,733 --> 00:19:42,297
+So here are the measured results, from a real GitHub Actions run that is linked in the description.
+
+306
+00:19:42,297 --> 00:19:45,163
+The times show how long the cluster took to say no.
+
+307
+00:19:45,700 --> 00:19:48,390
+An image from another registry:
+
+308
+00:19:48,390 --> 00:19:50,820
+refused in 484 milliseconds.
+
+309
+00:19:51,367 --> 00:19:54,632
+An unsigned image pushed with a stolen token:
+
+310
+00:19:54,632 --> 00:19:56,737
+refused in about two seconds.
+
+311
+00:19:56,737 --> 00:19:58,841
+A tampered copy of our image:
+
+312
+00:19:58,841 --> 00:19:59,712
+two seconds.
+
+313
+00:19:59,712 --> 00:20:02,687
+And the imposter, with a valid signature:
+
+314
+00:20:02,687 --> 00:20:03,921
+also two seconds.
+
+315
+00:20:04,467 --> 00:20:08,247
+Our own image started as a privileged container:
+
+316
+00:20:08,247 --> 00:20:11,791
+refused in 363 milliseconds, by Pod Security.
+
+317
+00:20:12,333 --> 00:20:13,914
+The malicious git commit:
+
+318
+00:20:13,914 --> 00:20:18,591
+Argo CD applied it, and the cluster refused it six seconds after the push.
+
+319
+00:20:18,591 --> 00:20:21,056
+Production kept serving the whole time.
+
+320
+00:20:21,600 --> 00:20:26,750
+And the old nginx image with known vulnerabilities was found, and its alert fired.
+
+321
+00:20:26,750 --> 00:20:30,456
+Meanwhile, the real release was admitted every single time.
+
+322
+00:20:32,200 --> 00:20:35,830
+Now, how do you use this in your own production?
+
+323
+00:20:35,830 --> 00:20:38,174
+Here is the plan, step by step.
+
+324
+00:20:38,733 --> 00:20:39,329
+Step one:
+
+325
+00:20:39,329 --> 00:20:40,254
+make it yours.
+
+326
+00:20:40,254 --> 00:20:45,082
+Change the image name and the trusted identity in the three policy files,
+
+327
+00:20:45,082 --> 00:20:48,256
+in the release workflow, and in the test script.
+
+328
+00:20:48,800 --> 00:20:49,359
+Step two:
+
+329
+00:20:49,359 --> 00:20:50,913
+protect the trust anchor.
+
+330
+00:20:50,913 --> 00:20:55,761
+Turn on branch protection for main, with required reviews and required checks,
+
+331
+00:20:55,761 --> 00:20:59,117
+and use CODEOWNERS for the workflows and the policies.
+
+332
+00:20:59,117 --> 00:21:03,156
+Whoever can change release dot yaml on main can release anything.
+
+333
+00:21:03,700 --> 00:21:04,451
+Step three:
+
+334
+00:21:04,451 --> 00:21:06,225
+install Kyverno with Helm.
+
+335
+00:21:06,225 --> 00:21:12,914
+In production, run at least three admission controller replicas, because the webhook fails closed.
+
+336
+00:21:13,467 --> 00:21:14,150
+Step four:
+
+337
+00:21:14,150 --> 00:21:15,517
+start in audit mode.
+
+338
+00:21:15,517 --> 00:21:22,556
+Label your namespaces with audit, read the policy reports for one or two weeks, and fix what they find.
+
+339
+00:21:24,300 --> 00:21:24,978
+Step five:
+
+340
+00:21:24,978 --> 00:21:31,085
+switch to enforce gradually, one namespace at a time, starting with the most critical one.
+
+341
+00:21:31,633 --> 00:21:32,167
+Step six:
+
+342
+00:21:32,167 --> 00:21:37,563
+route the three alerts to your on call channel, and put the dashboard in front of the team.
+
+343
+00:21:38,100 --> 00:21:38,908
+Step seven:
+
+344
+00:21:38,908 --> 00:21:44,415
+for real emergencies, use a reviewed, time limited policy exception in git.
+
+345
+00:21:44,415 --> 00:21:46,324
+Never delete the policies.
+
+346
+00:21:46,867 --> 00:21:49,055
+And step eight, day two operations:
+
+347
+00:21:49,055 --> 00:21:53,055
+a rollback is a git revert, there are no signing keys to rotate,
+
+348
+00:21:53,055 --> 00:21:57,306
+and to stop trusting a build, you change the identity in the policy.
+
+349
+00:21:59,067 --> 00:22:01,356
+Let us be honest about the limits.
+
+350
+00:22:01,356 --> 00:22:07,145
+The build job also signs, so this is SLSA level two style provenance, not level three.
+
+351
+00:22:07,145 --> 00:22:10,646
+The next step is the official SLSA GitHub generator.
+
+352
+00:22:11,200 --> 00:22:16,445
+Admission control does not protect against cluster admins, who can delete the policies.
+
+353
+00:22:16,445 --> 00:22:21,750
+And the public Sigstore service is used, so air gapped clusters need a private Sigstore.
+
+354
+00:22:22,300 --> 00:22:23,285
+Also on the list:
+
+355
+00:22:23,285 --> 00:22:26,528
+the new Sigstore bundle format once Kyverno supports it,
+
+356
+00:22:26,528 --> 00:22:30,293
+and verifying the signatures of the base images during the build.
+
+357
+00:22:32,033 --> 00:22:33,258
+That is the project.
+
+358
+00:22:33,258 --> 00:22:37,361
+Production now runs only code it can prove came from your pipeline,
+
+359
+00:22:37,361 --> 00:22:40,668
+and every release proves it again by attacking itself.
+
+360
+00:22:41,233 --> 00:22:44,939
+The code, the documentation and a free sixty page study guide,
+
+361
+00:22:44,939 --> 00:22:48,825
+with labs and interview questions, are linked in the description.
+
+362
+00:22:49,367 --> 00:22:51,569
+Now I would like to hear from you:
+
+363
+00:22:51,569 --> 00:22:56,362
+with your registry password, could someone run their code in your cluster?
+
+364
+00:22:56,362 --> 00:22:57,916
+Tell me in the comments.
+
+365
+00:22:57,916 --> 00:23:01,803
+And if this helped, subscribe for more real DevOps projects.
+
+366
+00:23:01,803 --> 00:23:03,098
+Thanks for watching.
