@@ -1,0 +1,38 @@
+---
+# Prometheus alert rules (mounted into Prometheus by platform/monitoring/prometheus.yaml).
+# Unit-tested with promtool: tests/prometheus/rules.test.yaml
+groups:
+  - name: supply-chain
+    rules:
+      # Kyverno refused a workload in an enforcing namespace (unsigned/tampered image, foreign
+      # registry, unsafe pod spec...). In a healthy pipeline this does not happen, so even one counts.
+      - alert: UntrustedWorkloadBlocked
+        expr: >-
+          sum by (resource_namespace, resource_kind) (
+            increase(kyverno_admission_requests_total{request_allowed="false", request_webhook="ValidatingWebhookConfiguration", resource_namespace="prod"}[10m])
+          ) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kyverno blocked {{ $value | printf \"%.0f\" }} {{ $labels.resource_kind }} request(s) in {{ $labels.resource_namespace }} (10 min)"
+          description: "Someone or something tried to run an untrusted or unsafe workload. See: kubectl get events -n {{ $labels.resource_namespace }} --field-selector reason=PolicyViolation"
+
+      # A running image has (newly published) CRITICAL vulnerabilities. Trivy Operator re-scans
+      # running workloads, so this catches CVEs that did not exist at build time.
+      - alert: RunningImageHasCriticalVulnerabilities
+        expr: sum by (namespace, image_repository, image_tag, image_digest) (trivy_image_vulnerabilities{severity="Critical"}) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.namespace }}: {{ $labels.image_repository }} has {{ $value }} CRITICAL vulnerabilities"
+          description: "Rebuild and release (the pipeline will refuse to sign while they remain), or accept the risk explicitly."
+
+      - alert: AdmissionControllerDown
+        expr: absent(up{job="kyverno-admission"} == 1)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kyverno admission controller is not scraped / not running"
+          description: "With failurePolicy=Fail new pods cannot be created; with Ignore they would not be verified. Check kyverno pods."

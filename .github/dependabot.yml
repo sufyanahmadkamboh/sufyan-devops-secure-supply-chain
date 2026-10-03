@@ -1,0 +1,18 @@
+---
+# Pinned SHAs and digests only stay safe if they are also kept up to date.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: {interval: weekly}
+    groups:
+      actions: {patterns: ["*"]}
+  - package-ecosystem: docker
+    directory: /app
+    schedule: {interval: weekly}
+  - package-ecosystem: docker
+    directory: /tools/toolbox
+    schedule: {interval: weekly}
+  - package-ecosystem: gomod
+    directory: /app
+    schedule: {interval: weekly}

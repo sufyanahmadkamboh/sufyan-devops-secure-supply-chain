@@ -1,0 +1,51 @@
+---
+# A trusted image can still be run dangerously. These rules follow the Kubernetes "restricted"
+# Pod Security Standard plus resource limits, so a signed image cannot be started as root,
+# privileged, or with host access.
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: restricted-pods
+  annotations:
+    policies.kyverno.io/title: Restricted pods
+    policies.kyverno.io/description: Non-root, no privilege escalation, all capabilities dropped, read-only root, limits set.
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        supply-chain.sufyan.dev/enforce: "true"
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: containers
+      expression: >-
+        object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : [])
+  validations:
+    - expression: >-
+        !has(object.spec.hostNetwork) || !object.spec.hostNetwork
+      message: hostNetwork is not allowed
+    - expression: >-
+        !has(object.spec.hostPID) || !object.spec.hostPID
+      message: hostPID is not allowed
+    - expression: >-
+        !has(object.spec.volumes) || object.spec.volumes.all(v, !has(v.hostPath))
+      message: hostPath volumes are not allowed
+    - expression: >-
+        variables.containers.all(c, has(c.securityContext)
+          && has(c.securityContext.runAsNonRoot) && c.securityContext.runAsNonRoot
+          && has(c.securityContext.allowPrivilegeEscalation) && !c.securityContext.allowPrivilegeEscalation
+          && (!has(c.securityContext.privileged) || !c.securityContext.privileged)
+          && has(c.securityContext.readOnlyRootFilesystem) && c.securityContext.readOnlyRootFilesystem
+          && has(c.securityContext.capabilities) && has(c.securityContext.capabilities.drop)
+          && c.securityContext.capabilities.drop.exists(d, d == "ALL"))
+      message: >-
+        containers must set runAsNonRoot=true, allowPrivilegeEscalation=false, privileged=false,
+        readOnlyRootFilesystem=true and capabilities.drop=[ALL]
+    - expression: >-
+        variables.containers.all(c, has(c.resources) && has(c.resources.limits)
+          && "memory" in c.resources.limits && "cpu" in c.resources.limits)
+      message: containers must set CPU and memory limits

@@ -1,0 +1,20 @@
+---
+# Sandbox: the same rules in AUDIT mode for namespaces labelled supply-chain.sufyan.dev/audit=true.
+# Nothing is blocked; violations appear in PolicyReports and in Prometheus. This is how a team rolls
+# a policy out safely: audit first, fix what it finds, then enforce.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+nameSuffix: -audit
+patches:
+  - target:
+      group: policies.kyverno.io
+    patch: |-
+      - op: replace
+        path: /spec/validationActions
+        value: [Audit]
+      - op: replace
+        path: /spec/matchConstraints/namespaceSelector/matchLabels
+        value:
+          supply-chain.sufyan.dev/audit: "true"

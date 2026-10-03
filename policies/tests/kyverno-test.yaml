@@ -1,0 +1,39 @@
+---
+# Offline unit tests for the rule-based policies: kyverno test policies/tests
+# (Signature verification needs a registry and Sigstore; it is covered by the end-to-end test.)
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: supply-chain-policies
+policies:
+  - ../base/allowed-images.yaml
+  - ../base/pod-security.yaml
+resources:
+  - resources.yaml
+variables: values.yaml
+results:
+  - policy: allowed-images
+    isValidatingPolicy: true
+    kind: Deployment
+    resources: [good-deployment]
+    result: pass
+  - policy: allowed-images
+    isValidatingPolicy: true
+    kind: Deployment
+    resources: [tag-only-deployment, foreign-registry-deployment, lookalike-repo-deployment]
+    result: fail
+  - policy: allowed-images
+    isValidatingPolicy: true
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: restricted-pods
+    isValidatingPolicy: true
+    kind: Pod
+    resources: [good-pod]
+    result: pass
+  - policy: restricted-pods
+    isValidatingPolicy: true
+    kind: Pod
+    resources: [privileged-pod, root-pod, hostpath-pod, no-limits-pod]
+    result: fail

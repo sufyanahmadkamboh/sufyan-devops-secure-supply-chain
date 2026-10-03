@@ -1,0 +1,64 @@
+---
+# promtool test rules tests/prometheus/rules.test.yaml
+rule_files:
+  - ../../platform/monitoring/rules.yaml
+
+evaluation_interval: 1m
+
+tests:
+  # Two denied Pod creations in prod -> alert. Denials in other namespaces or allowed requests -> nothing.
+  - interval: 1m
+    input_series:
+      - series: 'kyverno_admission_requests_total{request_allowed="false",request_webhook="ValidatingWebhookConfiguration",resource_kind="Pod",resource_namespace="prod",resource_request_operation="create"}'
+        values: "0 0 1 2 2"
+      - series: 'kyverno_admission_requests_total{request_allowed="false",request_webhook="ValidatingWebhookConfiguration",resource_kind="Pod",resource_namespace="sandbox",resource_request_operation="create"}'
+        values: "0 5 10 15 20"
+      - series: 'kyverno_admission_requests_total{request_allowed="true",request_webhook="ValidatingWebhookConfiguration",resource_kind="Pod",resource_namespace="prod",resource_request_operation="create"}'
+        values: "0 10 20 30 40"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: UntrustedWorkloadBlocked
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: UntrustedWorkloadBlocked
+        exp_alerts:
+          - exp_labels: {severity: critical, resource_kind: Pod, resource_namespace: prod}
+            exp_annotations:
+              summary: "Kyverno blocked 2 Pod request(s) in prod (10 min)"
+              description: "Someone or something tried to run an untrusted or unsafe workload. See: kubectl get events -n prod --field-selector reason=PolicyViolation"
+
+  # Trivy Operator reports CRITICAL vulnerabilities in a running image for 5+ minutes.
+  - interval: 1m
+    input_series:
+      - series: 'trivy_image_vulnerabilities{namespace="sandbox",image_repository="library/nginx",image_tag="1.21.0",image_digest="",severity="Critical"}'
+        values: "15x10"
+      - series: 'trivy_image_vulnerabilities{namespace="prod",image_repository="sufyanahmadkamboh/storefront-api",image_tag="",image_digest="sha256:abc",severity="Critical"}'
+        values: "0x10"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: RunningImageHasCriticalVulnerabilities
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: RunningImageHasCriticalVulnerabilities
+        exp_alerts:
+          - exp_labels: {severity: critical, namespace: sandbox, image_repository: library/nginx, image_tag: "1.21.0"}
+            exp_annotations:
+              summary: "sandbox: library/nginx has 15 CRITICAL vulnerabilities"
+              description: "Rebuild and release (the pipeline will refuse to sign while they remain), or accept the risk explicitly."
+
+  # The admission controller's metrics disappear.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="kyverno-admission"}'
+        values: "1 1 0 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: AdmissionControllerDown
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: AdmissionControllerDown
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations:
+              summary: "Kyverno admission controller is not scraped / not running"
+              description: "With failurePolicy=Fail new pods cannot be created; with Ignore they would not be verified. Check kyverno pods."

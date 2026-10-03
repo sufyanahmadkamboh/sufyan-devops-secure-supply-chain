@@ -1,0 +1,4 @@
+external-sources=true
+source-path=SCRIPTDIR
+# Small check functions are passed by name to wait_for (called indirectly).
+disable=SC2317,SC2329

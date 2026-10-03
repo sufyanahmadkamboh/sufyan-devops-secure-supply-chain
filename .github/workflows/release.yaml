@@ -1,0 +1,154 @@
+---
+# Release pipeline: build -> scan (gate) -> push by digest -> SBOM -> sign + attest (keyless) ->
+# end-to-end attack test against the new image -> promote the digest to deploy/prod (GitOps).
+#
+# This workflow file IS the trust anchor: production admits only images whose Sigstore certificate
+# says they were signed by .github/workflows/release.yaml on refs/heads/main of this repository.
+# Changes to it must go through review (see docs/runbook.md: branch protection, CODEOWNERS).
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - app/**
+      - .github/workflows/release.yaml
+      - .github/workflows/e2e.yaml
+      - scripts/**
+      - policies/**
+      - platform/**
+      - deploy/base/**
+      - tools/**
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/sufyanahmadkamboh/storefront-api
+
+jobs:
+  build:
+    name: Build, scan, sign
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write   # push the image and its signatures to GHCR
+      id-token: write   # keyless signing: GitHub OIDC token -> Fulcio certificate
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install cosign, syft, trivy (checksum-verified)
+        run: scripts/ci/install-tools.sh cosign syft trivy
+
+      - name: Build (unit tests run inside the build)
+        run: |
+          echo "BUILD_STARTED_ON=$(date -u +%FT%TZ)" >> "$GITHUB_ENV"
+          docker build \
+            --build-arg VERSION="0.1.${GITHUB_RUN_NUMBER}" --build-arg COMMIT="${GITHUB_SHA}" \
+            --label org.opencontainers.image.source="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label org.opencontainers.image.revision="${GITHUB_SHA}" \
+            --label org.opencontainers.image.version="0.1.${GITHUB_RUN_NUMBER}" \
+            -t "${IMAGE}:sha-${GITHUB_SHA::12}" app
+
+      - name: Vulnerability gate (no fixable CRITICAL or HIGH)
+        run: |
+          trivy image --quiet --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed "${IMAGE}:sha-${GITHUB_SHA::12}"
+
+      - name: Push by digest
+        id: push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "${GH_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR}" --password-stdin
+          docker push --quiet "${IMAGE}:sha-${GITHUB_SHA::12}"
+          ref="$(docker inspect --format '{{index .RepoDigests 0}}' "${IMAGE}:sha-${GITHUB_SHA::12}")"
+          echo "digest=${ref##*@}" >> "$GITHUB_OUTPUT"
+          echo "Pushed ${ref}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: SBOM, vulnerability report and provenance
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          syft scan --quiet "registry:${IMAGE}@${DIGEST}" -o cyclonedx-json=sbom.cdx.json
+          trivy image --quiet --format cosign-vuln -o vuln.json "${IMAGE}@${DIGEST}"
+          scripts/ci/provenance.sh "${IMAGE}@${DIGEST}" > provenance.json
+          jq '{components: (.components | length)}' sbom.cdx.json
+
+      # Classic (non-bundle) signature format: the format Kyverno's ImageValidatingPolicy verifies
+      # (tested: cosign v3 bundle-format signatures are not found by Kyverno 1.19). See docs/architecture.md.
+      - name: Sign and attest (keyless, recorded in Rekor)
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          legacy=(--new-bundle-format=false --use-signing-config=false --yes)
+          cosign sign "${legacy[@]}" "${IMAGE}@${DIGEST}"
+          cosign attest "${legacy[@]}" --type slsaprovenance1 --predicate provenance.json "${IMAGE}@${DIGEST}"
+          cosign attest "${legacy[@]}" --type vuln --predicate vuln.json "${IMAGE}@${DIGEST}"
+          cosign attest "${legacy[@]}" --type cyclonedx --predicate sbom.cdx.json "${IMAGE}@${DIGEST}"
+
+      - name: Verify what was just published (same identity check as the cluster)
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          id="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/.github/workflows/release.yaml@refs/heads/main"
+          cosign verify --certificate-identity "$id" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com "${IMAGE}@${DIGEST}" > /dev/null
+          for t in slsaprovenance1 vuln cyclonedx; do
+            cosign verify-attestation --type "$t" --certificate-identity "$id" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com "${IMAGE}@${DIGEST}" > /dev/null
+          done
+          echo "Signature and 3 attestations verified for ${IMAGE}@${DIGEST}" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: supply-chain-evidence
+          path: |
+            sbom.cdx.json
+            vuln.json
+            provenance.json
+
+  e2e:
+    name: End-to-end attack test
+    needs: build
+    permissions:
+      contents: write   # push a temporary branch for the GitOps attack scenario
+      packages: write   # push attacker images to GHCR
+      id-token: write   # sign an image as a DIFFERENT workflow (the imposter scenario)
+    # The self-repository form ($/...) is safer (GitHub, July 2026) but actionlint 1.7.12 does not
+    # parse it yet. This job has no earlier steps that could plant files, so ./ is equivalent here.
+    uses: ./.github/workflows/e2e.yaml # zizmor: ignore[self-repository]
+    with:
+      digest: ${{ needs.build.outputs.digest }}
+
+  promote:
+    name: Promote to production (GitOps)
+    needs: [build, e2e]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # commit the new digest to deploy/prod
+    concurrency:
+      group: promote
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: true   # needed for the git push below; scoped to contents:write
+      - name: Commit the verified digest
+        env:
+          DIGEST: ${{ needs.build.outputs.digest }}
+        run: |
+          sed -i -E "s|(    digest: )sha256:[a-f0-9]{64}|\1${DIGEST}|" deploy/prod/kustomization.yaml
+          git diff --quiet && { echo "already deployed"; exit 0; }
+          git config user.name "release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git commit -am "deploy: storefront-api ${DIGEST:7:12}"
+          git push origin HEAD:main
+          echo "Promoted ${IMAGE}@${DIGEST}" >> "$GITHUB_STEP_SUMMARY"

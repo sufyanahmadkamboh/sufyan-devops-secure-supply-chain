@@ -1,0 +1,46 @@
+---
+# Two simple rules that close the most common gaps before signatures are even checked:
+#   - Pods may only use images from this project's registry repository (no docker.io/random/thing).
+#   - Workloads stored in git (Deployments, StatefulSets, ...) must pin images by digest: a tag can be
+#     moved to different content by anyone with registry write access, a digest cannot.
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: allowed-images
+  annotations:
+    policies.kyverno.io/title: Allowed images
+    policies.kyverno.io/description: Only this project's repository; digests required in workload specs.
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        supply-chain.sufyan.dev/enforce: "true"
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+      - apiGroups: [apps]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [deployments, statefulsets, daemonsets, replicasets]
+  autogen:
+    podControllers:
+      controllers: []
+  variables:
+    - name: podSpec
+      expression: "object.kind == 'Pod' ? object.spec : object.spec.template.spec"
+    - name: images
+      expression: >-
+        variables.podSpec.containers.map(c, c.image)
+        + (has(variables.podSpec.initContainers) ? variables.podSpec.initContainers.map(c, c.image) : [])
+  validations:
+    - expression: >-
+        variables.images.all(i, i.startsWith("ghcr.io/sufyanahmadkamboh/storefront-api:")
+          || i.startsWith("ghcr.io/sufyanahmadkamboh/storefront-api@"))
+      messageExpression: >-
+        "only ghcr.io/sufyanahmadkamboh/storefront-api images may run here, got: "
+        + variables.images.filter(i, !i.startsWith("ghcr.io/sufyanahmadkamboh/storefront-api")).join(", ")
+    - expression: "object.kind == 'Pod' || variables.images.all(i, i.matches('@sha256:[a-f0-9]{64}$'))"
+      message: workloads must reference images by digest (image@sha256:...), not by a movable tag

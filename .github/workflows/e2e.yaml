@@ -1,0 +1,69 @@
+---
+# End-to-end attack test on a throwaway kind cluster. Called by release.yaml with the new digest,
+# or run by hand for any released digest.
+#
+# Note on identity: images this workflow signs carry the identity
+# .github/workflows/e2e.yaml - NOT release.yaml. That is exactly what the "imposter workflow"
+# scenario needs: a validly signed image from the right repository, but the wrong workflow.
+name: e2e
+
+on:
+  workflow_call:
+    inputs:
+      digest:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      digest:
+        description: Image digest (sha256:...) of a released storefront-api image
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  e2e:
+    name: Attack scenarios
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install kind and cosign (checksum-verified)
+        run: scripts/ci/install-tools.sh kind cosign
+
+      - name: Run the end-to-end test
+        env:
+          DIGEST: ${{ inputs.digest }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/e2e.sh
+
+      - name: Results
+        if: always()
+        run: |
+          if [[ -f reports/e2e-results.md ]]; then cat reports/e2e-results.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Diagnostics on failure
+        if: failure()
+        run: scripts/diagnostics.sh || true
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: e2e-reports
+          path: reports/
+          if-no-files-found: ignore
+
+      - name: Clean up the temporary branch and attacker images
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/e2e-cleanup.sh

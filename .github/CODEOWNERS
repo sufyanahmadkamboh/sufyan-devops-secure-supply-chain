@@ -1,0 +1,5 @@
+# The release workflow is the trust anchor (production verifies its identity), and the policies decide
+# what may run. Changes to either must be reviewed by the owner (enforced with branch protection).
+/.github/workflows/  @sufyanahmadkamboh
+/policies/           @sufyanahmadkamboh
+/platform/           @sufyanahmadkamboh

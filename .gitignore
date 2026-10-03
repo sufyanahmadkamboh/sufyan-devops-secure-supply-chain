@@ -1,0 +1,6 @@
+.lab/
+reports/
+*.key
+*.pem
+.env
+cosign.*

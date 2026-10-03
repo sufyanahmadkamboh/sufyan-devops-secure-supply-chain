@@ -1,0 +1,109 @@
+---
+# Test inputs for `kyverno test` (policies/tests/kyverno-test.yaml). Every resource is in a namespace
+# labelled supply-chain.sufyan.dev/enforce=true (see values.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: good-deployment, namespace: prod}
+spec:
+  selector: {matchLabels: {app: s}}
+  template:
+    metadata: {labels: {app: s}}
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/sufyanahmadkamboh/storefront-api@sha256:1111111111111111111111111111111111111111111111111111111111111111
+          securityContext: {runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          resources: {limits: {cpu: 200m, memory: 64Mi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: tag-only-deployment, namespace: prod}
+spec:
+  selector: {matchLabels: {app: s}}
+  template:
+    metadata: {labels: {app: s}}
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/sufyanahmadkamboh/storefront-api:latest
+          securityContext: {runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          resources: {limits: {cpu: 200m, memory: 64Mi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: foreign-registry-deployment, namespace: prod}
+spec:
+  selector: {matchLabels: {app: s}}
+  template:
+    metadata: {labels: {app: s}}
+    spec:
+      containers:
+        - name: app
+          image: docker.io/library/nginx@sha256:2222222222222222222222222222222222222222222222222222222222222222
+          securityContext: {runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          resources: {limits: {cpu: 200m, memory: 64Mi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: lookalike-repo-deployment, namespace: prod}
+spec:
+  selector: {matchLabels: {app: s}}
+  template:
+    metadata: {labels: {app: s}}
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/sufyanahmadkamboh/storefront-api-evil@sha256:3333333333333333333333333333333333333333333333333333333333333333
+          securityContext: {runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          resources: {limits: {cpu: 200m, memory: 64Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: good-pod, namespace: prod}
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/sufyanahmadkamboh/storefront-api@sha256:1111111111111111111111111111111111111111111111111111111111111111
+      securityContext: {runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      resources: {limits: {cpu: 200m, memory: 64Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: privileged-pod, namespace: prod}
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/sufyanahmadkamboh/storefront-api@sha256:1111111111111111111111111111111111111111111111111111111111111111
+      securityContext: {runAsNonRoot: true, allowPrivilegeEscalation: true, privileged: true, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      resources: {limits: {cpu: 200m, memory: 64Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: root-pod, namespace: prod}
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/sufyanahmadkamboh/storefront-api@sha256:1111111111111111111111111111111111111111111111111111111111111111
+      resources: {limits: {cpu: 200m, memory: 64Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: hostpath-pod, namespace: prod}
+spec:
+  volumes:
+    - name: host
+      hostPath: {path: /}
+  containers:
+    - name: app
+      image: ghcr.io/sufyanahmadkamboh/storefront-api@sha256:1111111111111111111111111111111111111111111111111111111111111111
+      securityContext: {runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      resources: {limits: {cpu: 200m, memory: 64Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: no-limits-pod, namespace: prod}
+spec:
+  containers:
+    - name: app
+      image: ghcr.io/sufyanahmadkamboh/storefront-api@sha256:1111111111111111111111111111111111111111111111111111111111111111
+      securityContext: {runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}

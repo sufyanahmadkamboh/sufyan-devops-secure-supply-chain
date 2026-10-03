@@ -1,0 +1,12 @@
+---
+# Production. The release workflow updates the digest below after the image passed every check;
+# Argo CD then syncs it. The namespace label turns on the enforcing admission policies.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: prod
+resources:
+  - namespace.yaml
+  - ../base
+images:
+  - name: ghcr.io/sufyanahmadkamboh/storefront-api
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000

@@ -1,0 +1,27 @@
+---
+# GitOps: Argo CD keeps the prod namespace equal to deploy/prod on the main branch.
+# Argo CD does not need to be trusted with security decisions: whatever it syncs still has to pass
+# the Kyverno admission policies, so a malicious commit cannot run an untrusted image.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: storefront-api
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain.git
+    targetRevision: main
+    path: deploy/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+    retry:
+      limit: 3
+      backoff: {duration: 10s, factor: 2, maxDuration: 1m}

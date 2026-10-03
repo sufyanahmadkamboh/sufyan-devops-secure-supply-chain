@@ -1,0 +1,80 @@
+---
+# Only images built by THIS repository's release workflow on main may run.
+# Checked at admission time, for every Pod (and Deployments etc. through autogen):
+#   1. a valid keyless signature from the release workflow identity (Fulcio certificate + Rekor entry)
+#   2. a signed SLSA provenance attestation that names this repository's main branch as the source
+#   3. a signed vulnerability scan attestation with no CRITICAL or HIGH findings
+#   4. a signed SBOM (CycloneDX) attestation
+# The image reference is rewritten to its digest, so what was verified is exactly what runs.
+apiVersion: policies.kyverno.io/v1
+kind: ImageValidatingPolicy
+metadata:
+  name: verify-release-images
+  annotations:
+    policies.kyverno.io/title: Verify release images
+    policies.kyverno.io/description: >-
+      Admits storefront-api images only when they are signed by the release workflow and carry
+      signed provenance, SBOM and clean vulnerability-scan attestations.
+spec:
+  validationActions: [Deny]
+  webhookConfiguration:
+    timeoutSeconds: 30
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        supply-chain.sufyan.dev/enforce: "true"
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  matchImageReferences:
+    - glob: "ghcr.io/sufyanahmadkamboh/storefront-api*"
+  attestors:
+    - name: release-workflow
+      cosign:
+        keyless:
+          identities:
+            - issuer: https://token.actions.githubusercontent.com
+              subject: https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain/.github/workflows/release.yaml@refs/heads/main
+        ctlog:
+          url: https://rekor.sigstore.dev
+  attestations:
+    - name: provenance
+      intoto:
+        type: https://slsa.dev/provenance/v1
+    - name: vulnerabilities
+      intoto:
+        type: https://cosign.sigstore.dev/attestation/vuln/v1
+    - name: sbom
+      intoto:
+        type: https://cyclonedx.org/bom
+  validationConfigurations:
+    mutateDigest: true
+    verifyDigest: true
+    required: true
+  validations:
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors["release-workflow"]])).all(n, n > 0)
+      message: image is not signed by the release workflow of sufyan-devops-secure-supply-chain (main branch)
+    - expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.provenance, [attestors["release-workflow"]])).all(n, n > 0)
+      message: no signed SLSA provenance from the release workflow
+    - expression: >-
+        images.containers.all(image,
+          extractPayload(image, attestations.provenance).predicate.buildDefinition.externalParameters.workflow.repository
+            == "https://github.com/sufyanahmadkamboh/sufyan-devops-secure-supply-chain"
+          && extractPayload(image, attestations.provenance).predicate.buildDefinition.externalParameters.workflow.ref
+            == "refs/heads/main")
+      message: provenance does not show a build of this repository's main branch
+    - expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.vulnerabilities, [attestors["release-workflow"]])).all(n, n > 0)
+      message: no signed vulnerability scan from the release workflow
+    - expression: >-
+        images.containers.all(image,
+          extractPayload(image, attestations.vulnerabilities).predicate.scanner.result.Results.all(r,
+            !has(r.Vulnerabilities) || r.Vulnerabilities.all(v, v.Severity != "CRITICAL" && v.Severity != "HIGH")))
+      message: the signed scan lists CRITICAL or HIGH vulnerabilities
+    - expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.sbom, [attestors["release-workflow"]])).all(n, n > 0)
+      message: no signed SBOM from the release workflow

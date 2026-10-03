@@ -1,0 +1,89 @@
+---
+# Static checks on every pull request and push: the pipeline itself, code, manifests and policies.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pipeline-security:
+    name: Workflow security (zizmor, actionlint, pinned actions)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Every action pinned to a commit SHA
+        run: scripts/ci/check-pinned-actions.sh
+      - name: actionlint
+        run: |
+          scripts/ci/install-tools.sh actionlint
+          actionlint -color
+      - name: zizmor (template injection, excessive permissions, credential persistence, ...)
+        run: |
+          python3 -m pip install --quiet --require-hashes -r tools/zizmor-requirements.txt
+          zizmor --min-severity low --format plain .github/workflows
+
+  code:
+    name: Go tests, ShellCheck, Dockerfile lint
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: app/go.mod
+          cache: false
+      - name: go vet + test (race detector)
+        working-directory: app
+        run: |
+          go vet ./...
+          go test -race -count=1 ./...
+      - name: ShellCheck
+        run: shellcheck -S style -x scripts/*.sh scripts/ci/*.sh
+      - name: hadolint
+        run: |
+          for f in app/Dockerfile tools/toolbox/Dockerfile; do
+            docker run --rm -i hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d hadolint --failure-threshold warning - < "$f"
+          done
+
+  manifests:
+    name: Manifests, policies and alert rules
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the toolbox image
+        run: docker build -q -t ssc-toolbox:dev tools/toolbox
+      - name: Kyverno policy unit tests
+        run: docker run --rm -v "$PWD:/work" -w /work ssc-toolbox:dev kyverno test policies/tests
+      - name: Render every Kustomize overlay
+        run: |
+          for d in deploy/prod policies/prod policies/sandbox; do
+            docker run --rm -v "$PWD:/work" -w /work ssc-toolbox:dev kubectl kustomize "$d" > /dev/null && echo "ok $d"
+          done
+      - name: Alert rules and their unit tests (promtool)
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v3.15.0 check rules platform/monitoring/rules.yaml
+          docker run --rm -v "$PWD:/w" -w /w/tests/prometheus --entrypoint promtool prom/prometheus:v3.15.0 test rules rules.test.yaml
+      - name: Dashboard is valid JSON
+        run: python3 -m json.tool platform/monitoring/dashboard.json > /dev/null
+      - name: yamllint
+        run: pipx run yamllint==1.38.0 --strict .
