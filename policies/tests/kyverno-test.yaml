@@ -30,10 +30,10 @@ results:
   - policy: restricted-pods
     isValidatingPolicy: true
     kind: Pod
-    resources: [good-pod]
+    resources: [good-pod, pod-level-nonroot-pod]
     result: pass
   - policy: restricted-pods
     isValidatingPolicy: true
     kind: Pod
-    resources: [privileged-pod, root-pod, hostpath-pod, no-limits-pod]
+    resources: [privileged-pod, root-pod, hostpath-pod, no-limits-pod, container-overrides-root-pod]
     result: fail

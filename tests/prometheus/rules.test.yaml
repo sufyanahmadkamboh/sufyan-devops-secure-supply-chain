@@ -6,11 +6,14 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
-  # Two denied Pod creations in prod -> alert. Denials in other namespaces or allowed requests -> nothing.
+  # Denied Pod creations in prod (both webhook phases) -> alert. Denials in other namespaces or allowed requests -> nothing.
   - interval: 1m
     input_series:
       - series: 'kyverno_admission_requests_total{request_allowed="false",request_webhook="ValidatingWebhookConfiguration",resource_kind="Pod",resource_namespace="prod",resource_request_operation="create"}'
         values: "0 0 1 2 2"
+      # signature failures are refused in the mutating phase (verify-release-images rewrites images)
+      - series: 'kyverno_admission_requests_total{request_allowed="false",request_webhook="MutatingWebhookConfiguration",resource_kind="Pod",resource_namespace="prod",resource_request_operation="create"}'
+        values: "0 0 0 1 1"
       - series: 'kyverno_admission_requests_total{request_allowed="false",request_webhook="ValidatingWebhookConfiguration",resource_kind="Pod",resource_namespace="sandbox",resource_request_operation="create"}'
         values: "0 5 10 15 20"
       - series: 'kyverno_admission_requests_total{request_allowed="true",request_webhook="ValidatingWebhookConfiguration",resource_kind="Pod",resource_namespace="prod",resource_request_operation="create"}'
@@ -24,8 +27,40 @@ tests:
         exp_alerts:
           - exp_labels: {severity: critical, resource_kind: Pod, resource_namespace: prod}
             exp_annotations:
-              summary: "Kyverno blocked 2 Pod request(s) in prod (10 min)"
+              summary: "Kyverno blocked 3 Pod request(s) in prod (10 min)"
               description: "Someone or something tried to run an untrusted or unsafe workload. See: kubectl get events -n prod --field-selector reason=PolicyViolation"
+
+  # First refusals of a new kind: Kyverno creates the series already at 3 (no 0 sample before it).
+  # increase() alone would see nothing; the rule must still fire and count 3.
+  - interval: 1m
+    input_series:
+      - series: 'kyverno_admission_requests_total{request_allowed="false",request_webhook="ValidatingWebhookConfiguration",resource_kind="Deployment",resource_namespace="prod",resource_request_operation="update"}'
+        values: "_ _ 3 3 3"
+      - series: 'process_start_time_seconds{job="prometheus"}'
+        values: "-3600x5"
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: UntrustedWorkloadBlocked
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: UntrustedWorkloadBlocked
+        exp_alerts:
+          - exp_labels: {severity: critical, resource_kind: Deployment, resource_namespace: prod}
+            exp_annotations:
+              summary: "Kyverno blocked 3 Deployment request(s) in prod (10 min)"
+              description: "Someone or something tried to run an untrusted or unsafe workload. See: kubectl get events -n prod --field-selector reason=PolicyViolation"
+
+  # Prometheus itself just started (its data is not persistent): old counters look new, no alert.
+  - interval: 1m
+    input_series:
+      - series: 'kyverno_admission_requests_total{request_allowed="false",request_webhook="ValidatingWebhookConfiguration",resource_kind="Pod",resource_namespace="prod",resource_request_operation="create"}'
+        values: "36x5"
+      - series: 'process_start_time_seconds{job="prometheus"}'
+        values: "0x5"
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: UntrustedWorkloadBlocked
+        exp_alerts: []
 
   # Trivy Operator reports CRITICAL vulnerabilities in a running image for 5+ minutes.
   - interval: 1m

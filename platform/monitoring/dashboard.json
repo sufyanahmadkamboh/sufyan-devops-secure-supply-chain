@@ -74,7 +74,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(kyverno_admission_requests_total{request_allowed=\"false\",request_webhook=\"ValidatingWebhookConfiguration\",resource_namespace=\"prod\"}[24h])) or vector(0)",
+          "expr": "sum((kyverno_admission_requests_total{request_allowed=\"false\",resource_namespace=\"prod\"} unless kyverno_admission_requests_total{request_allowed=\"false\",resource_namespace=\"prod\"} offset 24h) * 1 or increase(kyverno_admission_requests_total{request_allowed=\"false\",resource_namespace=\"prod\"}[24h])) or vector(0)",
           "instant": true
         }
       ],

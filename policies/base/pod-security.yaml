@@ -24,6 +24,10 @@ spec:
     - name: containers
       expression: >-
         object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : [])
+    - name: podNonRoot
+      expression: >-
+        has(object.spec.securityContext) && has(object.spec.securityContext.runAsNonRoot)
+        && object.spec.securityContext.runAsNonRoot
   validations:
     - expression: >-
         !has(object.spec.hostNetwork) || !object.spec.hostNetwork
@@ -34,17 +38,18 @@ spec:
     - expression: >-
         !has(object.spec.volumes) || object.spec.volumes.all(v, !has(v.hostPath))
       message: hostPath volumes are not allowed
+    # runAsNonRoot follows Kubernetes semantics: the container's own value wins, otherwise the pod's.
     - expression: >-
         variables.containers.all(c, has(c.securityContext)
-          && has(c.securityContext.runAsNonRoot) && c.securityContext.runAsNonRoot
+          && (has(c.securityContext.runAsNonRoot) ? c.securityContext.runAsNonRoot : variables.podNonRoot)
           && has(c.securityContext.allowPrivilegeEscalation) && !c.securityContext.allowPrivilegeEscalation
           && (!has(c.securityContext.privileged) || !c.securityContext.privileged)
           && has(c.securityContext.readOnlyRootFilesystem) && c.securityContext.readOnlyRootFilesystem
           && has(c.securityContext.capabilities) && has(c.securityContext.capabilities.drop)
           && c.securityContext.capabilities.drop.exists(d, d == "ALL"))
       message: >-
-        containers must set runAsNonRoot=true, allowPrivilegeEscalation=false, privileged=false,
-        readOnlyRootFilesystem=true and capabilities.drop=[ALL]
+        containers must run as non-root (container or pod runAsNonRoot=true) and set
+        allowPrivilegeEscalation=false, privileged=false, readOnlyRootFilesystem=true and capabilities.drop=[ALL]
     - expression: >-
         variables.containers.all(c, has(c.resources) && has(c.resources.limits)
           && "memory" in c.resources.limits && "cpu" in c.resources.limits)

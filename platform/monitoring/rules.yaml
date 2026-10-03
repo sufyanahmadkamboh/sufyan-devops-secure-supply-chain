@@ -6,10 +6,23 @@ groups:
     rules:
       # Kyverno refused a workload in an enforcing namespace (unsigned/tampered image, foreign
       # registry, unsafe pod spec...). In a healthy pipeline this does not happen, so even one counts.
+      # Kyverno creates a counter series on the first refusal of a kind, already at its value, and
+      # increase() cannot see that first step. Series that did not exist 10 minutes ago therefore count
+      # with their full value (`* 1` drops the metric name so `or` can match increase()'s output).
+      # That branch is skipped during Prometheus' first 10 minutes, when every series looks new.
+      # Both webhook phases count: signature checks run in the mutating phase (the image is rewritten to
+      # its digest there), so unsigned or imposter images are refused as MutatingWebhookConfiguration.
+      # A request is refused in one phase only, so nothing is counted twice.
       - alert: UntrustedWorkloadBlocked
         expr: >-
           sum by (resource_namespace, resource_kind) (
-            increase(kyverno_admission_requests_total{request_allowed="false", request_webhook="ValidatingWebhookConfiguration", resource_namespace="prod"}[10m])
+            (
+              (kyverno_admission_requests_total{request_allowed="false", resource_namespace="prod"}
+                unless kyverno_admission_requests_total{request_allowed="false", resource_namespace="prod"} offset 10m) * 1
+              and on () (time() - process_start_time_seconds{job="prometheus"} > 600)
+            )
+            or
+            increase(kyverno_admission_requests_total{request_allowed="false", resource_namespace="prod"}[10m])
           ) > 0
         labels:
           severity: critical

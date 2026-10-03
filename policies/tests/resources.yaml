@@ -107,3 +107,27 @@ spec:
     - name: app
       image: ghcr.io/sufyanahmadkamboh/storefront-api@sha256:1111111111111111111111111111111111111111111111111111111111111111
       securityContext: {runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+---
+# runAsNonRoot set once for the whole pod (valid Kubernetes; containers inherit it)
+apiVersion: v1
+kind: Pod
+metadata: {name: pod-level-nonroot-pod, namespace: prod}
+spec:
+  securityContext: {runAsNonRoot: true}
+  containers:
+    - name: app
+      image: ghcr.io/sufyanahmadkamboh/storefront-api@sha256:1111111111111111111111111111111111111111111111111111111111111111
+      securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      resources: {limits: {cpu: 200m, memory: 64Mi}}
+---
+# the pod says non-root, but the container overrides it
+apiVersion: v1
+kind: Pod
+metadata: {name: container-overrides-root-pod, namespace: prod}
+spec:
+  securityContext: {runAsNonRoot: true}
+  containers:
+    - name: app
+      image: ghcr.io/sufyanahmadkamboh/storefront-api@sha256:1111111111111111111111111111111111111111111111111111111111111111
+      securityContext: {runAsNonRoot: false, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+      resources: {limits: {cpu: 200m, memory: 64Mi}}
