@@ -30,7 +30,9 @@ tb bash -c "helm repo add kyverno https://kyverno.github.io/kyverno/ >/dev/null 
     --set admissionController.replicas=1 --wait --timeout 8m >/dev/null"
 
 log "Admission policies (prod: Deny, sandbox: Audit)"
-tb bash -c 'kubectl kustomize policies/prod | kubectl apply -f - && kubectl kustomize policies/sandbox | kubectl apply -f -' >/dev/null
+# Helm reports Kyverno ready before its webhook serves requests: retry until the policies are accepted.
+apply_policies() { tb bash -c 'kubectl kustomize policies/prod | kubectl apply -f - && kubectl kustomize policies/sandbox | kubectl apply -f -'; }
+wait_for 180 apply_policies >/dev/null || { apply_policies; die "Kyverno did not accept the policies"; }
 policies_ready() { [[ "$(k get vpol,ivpol -o jsonpath='{range .items[*]}{.status.conditionStatus.ready}{"\n"}{end}' | grep -c true)" == 6 ]]; }
 wait_for 180 policies_ready >/dev/null || die "policies not ready"
 
