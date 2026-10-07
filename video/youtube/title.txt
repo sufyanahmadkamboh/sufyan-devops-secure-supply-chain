@@ -1,5 +1,0 @@
-Kubernetes Supply Chain Security: Only Run Signed Images (Full Project)
-
-Alternatives (A/B test with YouTube "Test & compare"):
-Stop Untrusted Images in Kubernetes | Sigstore, Kyverno, SLSA, Argo CD
-Stolen Registry Password? Make Kubernetes Refuse It (Sigstore + Kyverno)
