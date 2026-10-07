@@ -39,7 +39,7 @@
   "who": "narrator",
   "voice": "Steve",
   "text": "Here is what we will cover. First, why this problem matters, with real attacks from 2025 and 2026.",
-  "tts": "Here is what we will cover. First, why this problem matters, with real attacks from 2025 and 2026."
+  "tts": "Here is what we will cover. First, why this problem matters, with real attacks from twenty twenty-five and twenty twenty-six."
  },
  {
   "id": "s01_01",
@@ -410,7 +410,7 @@
   "who": "narrator",
   "voice": "Steve",
   "text": "A digest is the SHA 256 hash of the image content. If one byte changes, the digest changes. So signatures are made on digests, git stores digests, and pods run digests.",
-  "tts": "A digest is the shah 256 hash of the image content. If one byte changes, the digest changes. So signatures are made on digests, git stores digests, and pods run digests."
+  "tts": "A digest is the shah two fifty-six hash of the image content. If one byte changes, the digest changes. So signatures are made on digests, git stores digests, and pods run digests."
  },
  {
   "id": "s12_02",
@@ -774,7 +774,7 @@
   "who": "narrator",
   "voice": "Steve",
   "text": "Our own image started as a privileged container: refused in 363 milliseconds, by Pod Security.",
-  "tts": "Our own image started as a privileged container: refused in 363 milliseconds, by Pod Security."
+  "tts": "Our own image started as a privileged container: refused in three hundred and sixty-three milliseconds, by Pod Security."
  },
  {
   "id": "s25_04",

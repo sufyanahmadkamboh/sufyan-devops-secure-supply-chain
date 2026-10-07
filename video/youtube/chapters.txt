@@ -1,22 +1,22 @@
 0:00 The question
 1:34 Why: the problem
-2:40 The idea
-3:35 Architecture
-4:40 Tool 1: Docker & distroless
+2:39 The idea
+3:34 Architecture
+4:39 Tool 1: Docker & distroless
 5:27 Tool 2: GitHub Actions
-7:14 Tool 3: Trivy
-7:47 Tool 4: Syft (SBOM)
+7:13 Tool 3: Trivy
+7:46 Tool 4: Syft (SBOM)
 8:21 Tool 5: SLSA provenance
-9:02 Tool 6: Sigstore cosign
-10:16 Tool 7: GHCR & digests
+9:01 Tool 6: Sigstore cosign
+10:15 Tool 7: GHCR & digests
 10:51 Tool 8: Kyverno
-13:13 Rollout: audit first
-13:49 Tool 9: Argo CD & Kustomize
+13:12 Rollout: audit first
+13:48 Tool 9: Argo CD & Kustomize
 15:00 Tool 10: Trivy Operator
-15:32 Tool 11: Prometheus & Grafana
-17:29 Tool 12: the attack test
+15:31 Tool 11: Prometheus & Grafana
+17:28 Tool 12: the attack test
 19:02 Measured results
-19:53 Hands-on: run it on your laptop
-24:55 Use it in production
-26:13 Limitations & next steps
+19:52 Hands-on: run it on your laptop
+24:54 Use it in production
+26:12 Limitations & next steps
 26:44 Summary & resources
