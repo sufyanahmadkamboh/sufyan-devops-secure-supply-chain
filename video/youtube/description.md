@@ -13,27 +13,27 @@ scripts/try.sh verify | trusted | foreign | unsigned | privileged | sandbox | sc
 
 ⏱️ Chapters
 0:00 The question
-1:40 Why: the problem
-2:45 The idea
-3:46 Architecture
-4:51 Tool 1: Docker & distroless
-5:40 Tool 2: GitHub Actions
-7:27 Tool 3: Trivy
-8:03 Tool 4: Syft (SBOM)
-8:39 Tool 5: SLSA provenance
-9:21 Tool 6: Sigstore cosign
-10:34 Tool 7: GHCR & digests
-11:12 Tool 8: Kyverno
-13:40 Rollout: audit first
-14:17 Tool 9: Argo CD & Kustomize
-15:30 Tool 10: Trivy Operator
-16:04 Tool 11: Prometheus & Grafana
-18:04 Tool 12: the attack test
-19:40 Measured results
-20:35 Hands-on: run it on your laptop
-25:55 Use it in production
-27:22 Limitations & next steps
-27:55 Summary & resources
+1:34 Why: the problem
+2:40 The idea
+3:35 Architecture
+4:40 Tool 1: Docker & distroless
+5:27 Tool 2: GitHub Actions
+7:14 Tool 3: Trivy
+7:47 Tool 4: Syft (SBOM)
+8:21 Tool 5: SLSA provenance
+9:02 Tool 6: Sigstore cosign
+10:16 Tool 7: GHCR & digests
+10:51 Tool 8: Kyverno
+13:13 Rollout: audit first
+13:49 Tool 9: Argo CD & Kustomize
+15:00 Tool 10: Trivy Operator
+15:32 Tool 11: Prometheus & Grafana
+17:29 Tool 12: the attack test
+19:02 Measured results
+19:53 Hands-on: run it on your laptop
+24:55 Use it in production
+26:13 Limitations & next steps
+26:44 Summary & resources
 
 🧰 Tools used, and what each one does here
 • Docker + distroless: a 3.7 MB, non-root image with base images pinned by digest

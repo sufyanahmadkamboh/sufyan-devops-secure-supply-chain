@@ -1,0 +1,1087 @@
+[
+ {
+  "id": "s00_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "If someone stole your container registry password tonight, could they run their own code in your production Kubernetes cluster?",
+  "tts": "If someone stole your container registry password tonight, could they run their own code in your production Kubernetes cluster?"
+ },
+ {
+  "id": "s00_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "For most teams, the honest answer is yes. The cluster runs whatever image sits in the company registry, because the token was valid.",
+  "tts": "For most teams, the honest answer is yes. The cluster runs whatever image sits in the company registry, because the token was valid."
+ },
+ {
+  "id": "s00_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "In this video I will show you a project that changes that answer to no. Production only runs code that it can prove came from your own release pipeline.",
+  "tts": "In this video I will show you a project that changes that answer to no. Production only runs code that it can prove came from your own release pipeline."
+ },
+ {
+  "id": "s00_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And I do not just claim it. I attack it seven different ways on every single release, and I will show you the measured results.",
+  "tts": "And I do not just claim it. I attack it seven different ways on every single release, and I will show you the measured results."
+ },
+ {
+  "id": "s00_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "By the end, you will understand every tool in this setup: what it does, how it is configured, and how to roll it out in a real production cluster. Everything is open source, and the full code and a free study guide are linked in the description.",
+  "tts": "By the end, you will understand every tool in this setup: what it does, how it is configured, and how to roll it out in a real production cluster. Everything is open source, and the full code and a free study guide are linked in the description."
+ },
+ {
+  "id": "s01_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Here is what we will cover. First, why this problem matters, with real attacks from 2025 and 2026.",
+  "tts": "Here is what we will cover. First, why this problem matters, with real attacks from 2025 and 2026."
+ },
+ {
+  "id": "s01_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Then the idea behind the solution, and the architecture.",
+  "tts": "Then the idea behind the solution, and the architecture."
+ },
+ {
+  "id": "s01_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Then every tool, one by one. Docker and distroless images. GitHub Actions. Trivy. Syft. SLSA provenance. And Sigstore cosign.",
+  "tts": "Then every tool, one by one. Docker and distroless images. GitHub Actions. Trivy. Sift. Salsa provenance. And Sigstore co-sign."
+ },
+ {
+  "id": "s01_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Kyverno for admission control. Argo CD and Kustomize for GitOps. Trivy Operator, Prometheus and Grafana for monitoring. And kind, for an end to end attack test that runs on every release.",
+  "tts": "Kai-verno for admission control. Argo C-D and customize for git-ops. Trivy Operator, Prometheus and Grafana for monitoring. And kind, for an end to end attack test that runs on every release."
+ },
+ {
+  "id": "s01_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Finally, the measured results, a hands-on lab where you run and attack the whole platform on your own laptop, and a step by step plan to use this in your own production cluster.",
+  "tts": "Finally, the measured results, a hands-on lab where you run and attack the whole platform on your own laptop, and a step by step plan to use this in your own production cluster."
+ },
+ {
+  "id": "s02_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Let us start with the problem. A Kubernetes cluster normally trusts any image it can pull from your registry. But a registry only proves one thing: that someone with a valid token pushed an image.",
+  "tts": "Let us start with the problem. A Kubernetes cluster normally trusts any image it can pull from your registry. But a registry only proves one thing: that someone with a valid token pushed an image."
+ },
+ {
+  "id": "s02_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "It does not prove that your reviewed code went into that image, or that your pipeline built it. And a vulnerability scan in your pipeline does not help either, if the image that runs is not the image that was scanned.",
+  "tts": "It does not prove that your reviewed code went into that image, or that your pipeline built it. And a vulnerability scan in your pipeline does not help either, if the image that runs is not the image that was scanned."
+ },
+ {
+  "id": "s02_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Attackers know this. In 2025, the version tags of a popular GitHub Action, tj-actions changed files, were moved to a malicious commit. Thousands of pipelines ran the attacker's code and leaked their secrets.",
+  "tts": "Attackers know this. In 2025, the version tags of a popular GitHub Action, T-J actions changed files, were moved to a malicious commit. Thousands of pipelines ran the attacker's code and leaked their secrets."
+ },
+ {
+  "id": "s02_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "In 2026, the Megalodon campaign pushed malicious workflow files into more than five thousand repositories in about six hours. Those workflows ran with each repository's own identity.",
+  "tts": "In 2026, the Megalodon campaign pushed malicious workflow files into more than five thousand repositories in about six hours. Those workflows ran with each repository's own identity."
+ },
+ {
+  "id": "s02_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And the simplest attack of all is a leaked registry token. With it, anyone can push an image under the same name as yours. So the real question is: how can the cluster know where an image really came from?",
+  "tts": "And the simplest attack of all is a leaked registry token. With it, anyone can push an image under the same name as yours. So the real question is: how can the cluster know where an image really came from?"
+ },
+ {
+  "id": "s03_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Here is the idea. Think of a pharmacy. A pharmacist does not hand out a medicine just because it is on the shelf. They check the factory seal and the paperwork first.",
+  "tts": "Here is the idea. Think of a pharmacy. A pharmacist does not hand out a medicine just because it is on the shelf. They check the factory seal and the paperwork first."
+ },
+ {
+  "id": "s03_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "We do the same with container images. Every image our pipeline builds gets a seal: a cryptographic signature, made by our release workflow.",
+  "tts": "We do the same with container images. Every image our pipeline builds gets a seal: a cryptographic signature, made by our release workflow."
+ },
+ {
+  "id": "s03_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Plus three signed documents. First, an origin certificate, called provenance, that says which repository, branch and commit it was built from.",
+  "tts": "Plus three signed documents. First, an origin certificate, called provenance, that says which repository, branch and commit it was built from."
+ },
+ {
+  "id": "s03_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Second, a lab test: a signed vulnerability scan.",
+  "tts": "Second, a lab test: a signed vulnerability scan."
+ },
+ {
+  "id": "s03_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Third, an ingredient list: a software bill of materials, or SBOM, that lists every library inside the image.",
+  "tts": "Third, an ingredient list: a software bill of materials, or S-bom, that lists every library inside the image."
+ },
+ {
+  "id": "s03_05",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "At the door of the cluster sits the pharmacist: Kyverno. Before any pod starts, it checks the seal and all three documents. No valid papers, no pod. It does not matter who pushed the image, or how it got into git.",
+  "tts": "At the door of the cluster sits the pharmacist: Kai-verno. Before any pod starts, it checks the seal and all three documents. No valid papers, no pod. It does not matter who pushed the image, or how it got into git."
+ },
+ {
+  "id": "s04_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Here is the whole architecture. It starts when a reviewed pull request is merged to the main branch.",
+  "tts": "Here is the whole architecture. It starts when a reviewed pull request is merged to the main branch."
+ },
+ {
+  "id": "s04_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The release workflow in GitHub Actions builds the image, runs the unit tests, scans it, and pushes it to the GitHub container registry, by digest.",
+  "tts": "The release workflow in GitHub Actions builds the image, runs the unit tests, scans it, and pushes it to the GitHub container registry, by digest."
+ },
+ {
+  "id": "s04_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Then it creates the SBOM, the scan report and the provenance, and signs everything with Sigstore. There is no private key anywhere. GitHub vouches for the workflow's identity, and every signature is written to a public log called Rekor.",
+  "tts": "Then it creates the S-bom, the scan report and the provenance, and signs everything with Sigstore. There is no private key anywhere. GitHub vouches for the workflow's identity, and every signature is written to a public log called Recor."
+ },
+ {
+  "id": "s04_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Next, an end to end test creates a brand new Kubernetes cluster and attacks the new release. Only if every attack fails does the pipeline commit the new image digest to the production folder in git.",
+  "tts": "Next, an end to end test creates a brand new Kubernetes cluster and attacks the new release. Only if every attack fails does the pipeline commit the new image digest to the production folder in git."
+ },
+ {
+  "id": "s04_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Argo CD sees that commit and applies it to the cluster.",
+  "tts": "Argo C-D sees that commit and applies it to the cluster."
+ },
+ {
+  "id": "s04_05",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Every pod passes through Kyverno, which verifies the signature and the three documents. Only then does the pod run.",
+  "tts": "Every pod passes through Kai-verno, which verifies the signature and the three documents. Only then does the pod run."
+ },
+ {
+  "id": "s04_06",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And because new vulnerabilities are published every day, Trivy Operator keeps scanning the running images, while Prometheus and Grafana alert on blocked attempts and new critical issues.",
+  "tts": "And because new vulnerabilities are published every day, Trivy Operator keeps scanning the running images, while Prometheus and Grafana alert on blocked attempts and new critical issues."
+ },
+ {
+  "id": "s05_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Let us go through every tool, starting with what we ship: a small Go service called storefront API. The Dockerfile is a two stage build. Notice that both base images are pinned by digest, not only by tag.",
+  "tts": "Let us go through every tool, starting with what we ship: a small Go service called storefront A-P-I. The Dockerfile is a two stage build. Notice that both base images are pinned by digest, not only by tag."
+ },
+ {
+  "id": "s05_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The unit tests run inside the build, so a failing test means no image. The binary is static, built with trim path and an empty build ID, so builds are reproducible.",
+  "tts": "The unit tests run inside the build, so a failing test means no image. The binary is static, built with trim path and an empty build I-D, so builds are reproducible."
+ },
+ {
+  "id": "s05_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The final image is distroless: no shell, no package manager, and it runs as user 65532, never as root.",
+  "tts": "The final image is distroless: no shell, no package manager, and it runs as user 6 5 5 3 2, never as root."
+ },
+ {
+  "id": "s05_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The whole image is only 3.7 megabytes. Why does this matter for supply chain security? Fewer components mean fewer vulnerabilities, which keeps the scan gate green, and leaves an attacker almost nothing to work with.",
+  "tts": "The whole image is only 3 point 7 megabytes. Why does this matter for supply chain security? Fewer components mean fewer vulnerabilities, which keeps the scan gate green, and leaves an attacker almost nothing to work with."
+ },
+ {
+  "id": "s06_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Next, GitHub Actions. This is the release workflow. And here is the most important idea of the whole project: this workflow file is the trust anchor. Production trusts exactly one thing: signatures made by this file, on the main branch.",
+  "tts": "Next, GitHub Actions. This is the release workflow. And here is the most important idea of the whole project: this workflow file is the trust anchor. Production trusts exactly one thing: signatures made by this file, on the main branch."
+ },
+ {
+  "id": "s06_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "At the top, permissions is empty. No job gets any access unless it explicitly asks for it.",
+  "tts": "At the top, permissions is empty. No job gets any access unless it explicitly asks for it."
+ },
+ {
+  "id": "s06_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The build job asks for exactly three things: read the code, write packages so it can push the image, and an ID token.",
+  "tts": "The build job asks for exactly three things: read the code, write packages so it can push the image, and an I-D token."
+ },
+ {
+  "id": "s06_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "That ID token is what makes keyless signing possible. GitHub issues a short lived token that says: I am the release workflow, of this repository, running on the main branch.",
+  "tts": "That I-D token is what makes keyless signing possible. GitHub issues a short lived token that says: I am the release workflow, of this repository, running on the main branch."
+ },
+ {
+  "id": "s06_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Then the jobs run in order: build and sign, then the attack test, then promote. Promote needs both earlier jobs to succeed.",
+  "tts": "Then the jobs run in order: build and sign, then the attack test, then promote. Promote needs both earlier jobs to succeed."
+ },
+ {
+  "id": "s07_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Because the pipeline is the trust anchor, the pipeline itself is hardened. This is exactly where the 2025 tag attack would have failed.",
+  "tts": "Because the pipeline is the trust anchor, the pipeline itself is hardened. This is exactly where the 2025 tag attack would have failed."
+ },
+ {
+  "id": "s07_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Every action is pinned to a full commit SHA, not to a tag. A tag can be moved, a commit SHA cannot. A small script in CI fails the build if anyone adds an unpinned action.",
+  "tts": "Every action is pinned to a full commit shah, not to a tag. A tag can be moved, a commit shah cannot. A small script in C-I fails the build if anyone adds an unpinned action."
+ },
+ {
+  "id": "s07_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "No expressions are placed directly inside run blocks. Values are passed through environment variables, which closes the template injection hole that many workflow attacks use.",
+  "tts": "No expressions are placed directly inside run blocks. Values are passed through environment variables, which closes the template injection hole that many workflow attacks use."
+ },
+ {
+  "id": "s07_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Checkout does not leave its token on disk. And tools like cosign, Syft and Trivy are downloaded with a checksum check, instead of adding more third party actions.",
+  "tts": "Checkout does not leave its token on disk. And tools like co-sign, Sift and Trivy are downloaded with a checksum check, instead of adding more third party actions."
+ },
+ {
+  "id": "s07_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "On every push, zizmor and actionlint scan the workflows for security mistakes. And CODEOWNERS plus Dependabot make sure changes are reviewed and pins stay up to date.",
+  "tts": "On every push, zizmor and action lint scan the workflows for security mistakes. And code owners plus Dependabot make sure changes are reviewed and pins stay up to date."
+ },
+ {
+  "id": "s08_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Tool number three is Trivy, a vulnerability scanner. It runs twice in the pipeline. First as a gate. If the image has any fixable critical or high vulnerability, exit code one stops the release, and nothing is pushed.",
+  "tts": "Tool number three is Trivy, a vulnerability scanner. It runs twice in the pipeline. First as a gate. If the image has any fixable critical or high vulnerability, exit code one stops the release, and nothing is pushed."
+ },
+ {
+  "id": "s08_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Second, after the push, Trivy writes its report in the cosign vuln format. That report gets signed, so the cluster can read a scan result that nobody could have faked.",
+  "tts": "Second, after the push, Trivy writes its report in the co-sign vulnerability format. That report gets signed, so the cluster can read a scan result that nobody could have faked."
+ },
+ {
+  "id": "s08_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Why both? The gate gives developers fast feedback. The signed report is evidence that travels with the image, all the way to the cluster.",
+  "tts": "Why both? The gate gives developers fast feedback. The signed report is evidence that travels with the image, all the way to the cluster."
+ },
+ {
+  "id": "s09_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Tool four is Syft, which creates the software bill of materials. It reads the pushed image, by digest, and lists every component inside, in the CycloneDX format.",
+  "tts": "Tool four is Sift, which creates the software bill of materials. It reads the pushed image, by digest, and lists every component inside, in the Cyclone D-X format."
+ },
+ {
+  "id": "s09_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Why do we need it? When the next big vulnerability is announced, the question is always: are we affected? With an SBOM for every image, the answer is a search, not a week of investigation.",
+  "tts": "Why do we need it? When the next big vulnerability is announced, the question is always: are we affected? With an S-bom for every image, the answer is a search, not a week of investigation."
+ },
+ {
+  "id": "s09_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Regulations like the EU Cyber Resilience Act also ask for SBOMs. Here the SBOM is signed and attached to the image, and Kyverno refuses any image without one.",
+  "tts": "Regulations like the E-U Cyber Resilience Act also ask for S-boms. Here the S-bom is signed and attached to the image, and Kai-verno refuses any image without one."
+ },
+ {
+  "id": "s10_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Tool five is provenance, in the SLSA version one format. SLSA, pronounced salsa, is a framework that describes how software was built.",
+  "tts": "Tool five is provenance, in the salsa version one format. S-L-S-A, pronounced salsa, is a framework that describes how software was built."
+ },
+ {
+  "id": "s10_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Our provenance records the repository, the branch, and the workflow file that ran the build. Later, Kyverno checks that the repository is ours, and that the branch is main.",
+  "tts": "Our provenance records the repository, the branch, and the workflow file that ran the build. Later, Kai-verno checks that the repository is ours, and that the branch is main."
+ },
+ {
+  "id": "s10_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "It also records the exact git commit, and a link to the workflow run, so anyone can trace a running pod back to the line of code it came from.",
+  "tts": "It also records the exact git commit, and a link to the workflow run, so anyone can trace a running pod back to the line of code it came from."
+ },
+ {
+  "id": "s10_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "On its own, this is just a JSON file. What makes it trustworthy is the next tool: it is signed by the release workflow, so nobody else can produce a valid one.",
+  "tts": "On its own, this is just a JSON file. What makes it trustworthy is the next tool: it is signed by the release workflow, so nobody else can produce a valid one."
+ },
+ {
+  "id": "s11_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Now the heart of the project: Sigstore, and its command line tool, cosign. Classic signing needs a private key. Someone has to store it, protect it and rotate it. And a stolen key can sign anything.",
+  "tts": "Now the heart of the project: Sigstore, and its command line tool, co-sign. Classic signing needs a private key. Someone has to store it, protect it and rotate it. And a stolen key can sign anything."
+ },
+ {
+  "id": "s11_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Keyless signing removes the key. The workflow shows its GitHub ID token to Fulcio, Sigstore's certificate authority.",
+  "tts": "Keyless signing removes the key. The workflow shows its GitHub I-D token to Fool-see-oh. That is the certificate authority of Sigstore."
+ },
+ {
+  "id": "s11_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Fulcio issues a certificate that is valid for only ten minutes. Inside the certificate is the workflow identity: this repository, release dot yaml, on the main branch.",
+  "tts": "Fool-see-oh issues a certificate that is valid for only ten minutes. Inside the certificate is the workflow identity: this repository, release dot YAML, on the main branch."
+ },
+ {
+  "id": "s11_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "cosign signs the image digest with that certificate, stores the signature next to the image, and records it in Rekor, a public transparency log. Anyone can audit that log, and nobody can quietly remove an entry.",
+  "tts": "Co-sign signs the image digest with that certificate, stores the signature next to the image, and records it in Recor, a public transparency log. Anyone can audit that log, and nobody can quietly remove an entry."
+ },
+ {
+  "id": "s11_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "In the workflow, that is four commands: sign the image, then attest the provenance, the vulnerability report, and the SBOM. One detail cost me real debugging time: cosign version three writes a new bundle format by default, and Kyverno 1.19 did not find those signatures in my tests. So the pipeline uses the classic format, with new bundle format set to false.",
+  "tts": "In the workflow, that is four commands: sign the image, then attest the provenance, the vulnerability report, and the S-bom. One detail cost me real debugging time: co-sign version three writes a new bundle format by default, and Kai-verno 1 point 19 did not find those signatures in my tests. So the pipeline uses the classic format, with new bundle format set to false."
+ },
+ {
+  "id": "s12_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Tool seven is the registry: the GitHub container registry. The important concept here is tags versus digests. A tag, like version one, is just a label. Anyone with write access can point it at different content.",
+  "tts": "Tool seven is the registry: the GitHub container registry. The important concept here is tags versus digests. A tag, like version one, is just a label. Anyone with write access can point it at different content."
+ },
+ {
+  "id": "s12_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "A digest is the SHA 256 hash of the image content. If one byte changes, the digest changes. So signatures are made on digests, git stores digests, and pods run digests.",
+  "tts": "A digest is the shah 256 hash of the image content. If one byte changes, the digest changes. So signatures are made on digests, git stores digests, and pods run digests."
+ },
+ {
+  "id": "s12_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The signature and the three attestations are stored right next to the image in the same registry, so the proof travels wherever the image goes.",
+  "tts": "The signature and the three attestations are stored right next to the image in the same registry, so the proof travels wherever the image goes."
+ },
+ {
+  "id": "s13_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Tool eight is the guard at the door: Kyverno. Every request to create or change a pod goes to the Kubernetes API server.",
+  "tts": "Tool eight is the guard at the door: Kai-verno. Every request to create or change a pod goes to the Kubernetes A-P-I server."
+ },
+ {
+  "id": "s13_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Before the object is stored, the API server asks admission webhooks for their opinion. Kyverno is one of them.",
+  "tts": "Before the object is stored, the A-P-I server asks admission webhooks for their opinion. Kai-verno is one of them."
+ },
+ {
+  "id": "s13_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "If Kyverno says no, the pod is never created. It does not matter whether the request came from a person with kubectl, from a CI job, or from Argo CD.",
+  "tts": "If Kai-verno says no, the pod is never created. It does not matter whether the request came from a person with kube control, from a C-I job, or from Argo C-D."
+ },
+ {
+  "id": "s13_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "This project uses the new Kyverno 1.19 policy types, written in CEL, the same expression language Kubernetes itself uses. The older ClusterPolicy type is deprecated.",
+  "tts": "This project uses the new Kai-verno 1 point 19 policy types, written in cel, the same expression language Kubernetes itself uses. The older cluster policy type is deprecated."
+ },
+ {
+  "id": "s14_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Here is the main policy: verify release images. It only applies to namespaces with the label enforce equals true. So you decide, namespace by namespace.",
+  "tts": "Here is the main policy: verify release images. It only applies to namespaces with the label enforce equals true. So you decide, namespace by namespace."
+ },
+ {
+  "id": "s14_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The attestor is the most important part. It says: the signature must come from a Sigstore certificate issued by GitHub, for the subject release dot yaml on the main branch of this repository. And it must be recorded in the Rekor log.",
+  "tts": "The attestor is the most important part. It says: the signature must come from a Sigstore certificate issued by GitHub, for the subject release dot YAML on the main branch of this repository. And it must be recorded in the Recor log."
+ },
+ {
+  "id": "s14_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Then we declare the three documents we expect: the provenance, the vulnerability report, and the SBOM.",
+  "tts": "Then we declare the three documents we expect: the provenance, the vulnerability report, and the S-bom."
+ },
+ {
+  "id": "s14_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Mutate digest rewrites the pod's image to the exact digest that was verified. So nobody can move a tag between the check and the start of the container.",
+  "tts": "Mutate digest rewrites the pod's image to the exact digest that was verified. So nobody can move a tag between the check and the start of the container."
+ },
+ {
+  "id": "s14_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Finally, the validations. The signature must verify. The provenance must name this repository and main. The signed scan must have no critical or high findings. And the signed SBOM must exist. Every rule has a clear message, so a refused developer knows exactly why.",
+  "tts": "Finally, the validations. The signature must verify. The provenance must name this repository and main. The signed scan must have no critical or high findings. And the signed S-bom must exist. Every rule has a clear message, so a refused developer knows exactly why."
+ },
+ {
+  "id": "s15_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Two more policies close the simple gaps. Allowed images says that pods in production may only use images from our own repository. A Docker Hub image is refused in about half a second, before any signature is even checked.",
+  "tts": "Two more policies close the simple gaps. Allowed images says that pods in production may only use images from our own repository. A Docker Hub image is refused in about half a second, before any signature is even checked."
+ },
+ {
+  "id": "s15_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "It also requires workloads stored in git, like Deployments, to reference images by digest, never by a movable tag.",
+  "tts": "It also requires workloads stored in git, like Deployments, to reference images by digest, never by a movable tag."
+ },
+ {
+  "id": "s15_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Restricted pods covers the case where a trusted image is started in a dangerous way: as root, privileged, with host access, or without resource limits.",
+  "tts": "Restricted pods covers the case where a trusted image is started in a dangerous way: as root, privileged, with host access, or without resource limits."
+ },
+ {
+  "id": "s15_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The production namespace switches all of this on with two labels. One for our Kyverno policies, and one for the Pod Security admission that is built into Kubernetes, at the restricted level. Two independent locks on the same door.",
+  "tts": "The production namespace switches all of this on with two labels. One for our Kai-verno policies, and one for the Pod Security admission that is built into Kubernetes, at the restricted level. Two independent locks on the same door."
+ },
+ {
+  "id": "s16_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "How do you introduce rules like these without breaking every team on day one? With audit mode.",
+  "tts": "How do you introduce rules like these without breaking every team on day one? With audit mode."
+ },
+ {
+  "id": "s16_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "A Kustomize overlay creates a copy of every policy with the suffix audit, and patches the action from Deny to Audit, for namespaces with the label audit.",
+  "tts": "A customize overlay creates a copy of every policy with the suffix audit, and patches the action from Deny to Audit, for namespaces with the label audit."
+ },
+ {
+  "id": "s16_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "In audit mode nothing is blocked. Violations show up in policy reports and in Prometheus. Teams fix what the reports find, and then you switch the namespace label from audit to enforce.",
+  "tts": "In audit mode nothing is blocked. Violations show up in policy reports and in Prometheus. Teams fix what the reports find, and then you switch the namespace label from audit to enforce."
+ },
+ {
+  "id": "s16_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "In the test, an unsigned image runs fine in the sandbox namespace, and the policy reports list its violations eighteen seconds later.",
+  "tts": "In the test, an unsigned image runs fine in the sandbox namespace, and the policy reports list its violations eighteen seconds later."
+ },
+ {
+  "id": "s17_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Tool nine is GitOps, with Argo CD and Kustomize. The production folder in git is the single source of truth for what should run.",
+  "tts": "Tool nine is git ops, with Argo C-D and customize. The production folder in git is the single source of truth for what should run."
+ },
+ {
+  "id": "s17_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The production kustomization pins the image by digest. Only the release pipeline changes this line, and only after the attack test has passed.",
+  "tts": "The production customization pins the image by digest. Only the release pipeline changes this line, and only after the attack test has passed."
+ },
+ {
+  "id": "s17_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Argo CD watches that folder on main, with automated sync, prune and self heal. If someone changes the cluster by hand, Argo CD puts it back.",
+  "tts": "Argo C-D watches that folder on main, with automated sync, prune and self heal. If someone changes the cluster by hand, Argo C-D puts it back."
+ },
+ {
+  "id": "s17_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And here is a key design decision: Argo CD is not trusted with security. If an attacker manages to commit a bad digest, Argo CD will try to apply it, and Kyverno will refuse it. We test exactly that on every release.",
+  "tts": "And here is a key design decision: Argo C-D is not trusted with security. If an attacker manages to commit a bad digest, Argo C-D will try to apply it, and Kai-verno will refuse it. We test exactly that on every release."
+ },
+ {
+  "id": "s18_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "This is the promote job. It only runs when the build and the attack test both succeeded, and its only permission is to write to the repository.",
+  "tts": "This is the promote job. It only runs when the build and the attack test both succeeded, and its only permission is to write to the repository."
+ },
+ {
+  "id": "s18_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "It replaces the digest in the production kustomization with the new, verified digest, and commits it to main as a release bot.",
+  "tts": "It replaces the digest in the production customization with the new, verified digest, and commits it to main as a release bot."
+ },
+ {
+  "id": "s18_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "That commit is the deployment. To roll back, you simply revert it. Argo CD then deploys the previous digest, which is still signed and still verifiable.",
+  "tts": "That commit is the deployment. To roll back, you simply revert it. Argo C-D then deploys the previous digest, which is still signed and still verifiable."
+ },
+ {
+  "id": "s19_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Signing proves where an image came from. It does not protect you from a vulnerability that is published next month. That is the job of tool ten: Trivy Operator.",
+  "tts": "Signing proves where an image came from. It does not protect you from a vulnerability that is published next month. That is the job of tool ten: Trivy Operator."
+ },
+ {
+  "id": "s19_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "It runs inside the cluster, watches the running workloads in prod and in sandbox, and re-scans their images. The results become vulnerability reports, and Prometheus metrics.",
+  "tts": "It runs inside the cluster, watches the running workloads in prod and in sandbox, and re-scans their images. The results become vulnerability reports, and Prometheus metrics."
+ },
+ {
+  "id": "s19_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "In the test, an old nginx image is started in the sandbox. Trivy Operator found twenty seven critical vulnerabilities in it, ninety seconds later.",
+  "tts": "In the test, an old engine x image is started in the sandbox. Trivy Operator found twenty seven critical vulnerabilities in it, ninety seconds later."
+ },
+ {
+  "id": "s20_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Tool eleven is Prometheus. It collects the metrics from Kyverno and from Trivy Operator, and three alert rules watch them.",
+  "tts": "Tool eleven is Prometheus. It collects the metrics from Kai-verno and from Trivy Operator, and three alert rules watch them."
+ },
+ {
+  "id": "s20_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Untrusted workload blocked fires when anything is refused in production. In a healthy pipeline that never happens, so even one refusal is worth a look.",
+  "tts": "Untrusted workload blocked fires when anything is refused in production. In a healthy pipeline that never happens, so even one refusal is worth a look."
+ },
+ {
+  "id": "s20_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Running image has critical vulnerabilities fires when Trivy Operator finds critical issues in a running image for five minutes.",
+  "tts": "Running image has critical vulnerabilities fires when Trivy Operator finds critical issues in a running image for five minutes."
+ },
+ {
+  "id": "s20_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And admission controller down fires when Kyverno itself disappears. Remember, Kyverno fails closed: when it is down, no new pods can start.",
+  "tts": "And admission controller down fires when Kai-verno itself disappears. Remember, Kai-verno fails closed: when it is down, no new pods can start."
+ },
+ {
+  "id": "s20_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "All three rules have unit tests that run with promtool in CI. And those tests, together with a live demo, found real bugs.",
+  "tts": "All three rules have unit tests that run with prom tool in C-I. And those tests, together with a live demo, found real bugs."
+ },
+ {
+  "id": "s21_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Here is an honest lesson from building this. My first version of the alert only counted refusals from Kyverno's validating webhook.",
+  "tts": "Here is an honest lesson from building this. My first version of the alert only counted refusals from Kai-verno's validating webhook."
+ },
+ {
+  "id": "s21_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "But the image policy also rewrites images to their digest, so signature failures are refused in the mutating phase. The alert missed exactly the most important refusals: unsigned and imposter images. A local demo showed ten refusals where nineteen had happened.",
+  "tts": "But the image policy also rewrites images to their digest, so signature failures are refused in the mutating phase. The alert missed exactly the most important refusals: unsigned and imposter images. A local demo showed ten refusals where nineteen had happened."
+ },
+ {
+  "id": "s21_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The second bug: Prometheus' increase function cannot see the very first refusals, because Kyverno creates the counter when it already has a value, for example three.",
+  "tts": "The second bug: Prometheus' increase function cannot see the very first refusals, because Kai-verno creates the counter when it already has a value, for example three."
+ },
+ {
+  "id": "s21_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Both are fixed, and both cases now have unit tests. The lesson is simple: test your alerts against real attacks, not just against your expectations.",
+  "tts": "Both are fixed, and both cases now have unit tests. The lesson is simple: test your alerts against real attacks, not just against your expectations."
+ },
+ {
+  "id": "s22_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Grafana shows it all on one dashboard. This is the local lab after a demo. At the top: what was blocked in production, the signature checks, running images with critical vulnerabilities, and the firing alerts.",
+  "tts": "Grafana shows it all on one dashboard. This is the local lab after a demo. At the top: what was blocked in production, the signature checks, running images with critical vulnerabilities, and the firing alerts."
+ },
+ {
+  "id": "s22_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Below, refusals over time, image verification results, vulnerabilities per image, and the health of the admission controller. The dashboard is provisioned from a JSON file in git, like everything else in this project.",
+  "tts": "Below, refusals over time, image verification results, vulnerabilities per image, and the health of the admission controller. The dashboard is provisioned from a JSON file in git, like everything else in this project."
+ },
+ {
+  "id": "s23_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Tool twelve is kind, Kubernetes in Docker. It powers the part that makes this project different: an end to end attack test that runs on every release, on a brand new cluster inside GitHub Actions.",
+  "tts": "Tool twelve is kind, Kubernetes in Docker. It powers the part that makes this project different: an end to end attack test that runs on every release, on a brand new cluster inside GitHub Actions."
+ },
+ {
+  "id": "s23_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Section one builds the whole platform: Kyverno, the policies, Argo CD, Trivy Operator, Prometheus and Grafana. That takes about two and a half minutes.",
+  "tts": "Section one builds the whole platform: Kai-verno, the policies, Argo C-D, Trivy Operator, Prometheus and Grafana. That takes about two and a half minutes."
+ },
+ {
+  "id": "s23_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Section two deploys the new signed release the real way, through Argo CD.",
+  "tts": "Section two deploys the new signed release the real way, through Argo C-D."
+ },
+ {
+  "id": "s23_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Section three attacks the cluster door directly. It pushes attacker images into our real registry, which simulates a stolen token.",
+  "tts": "Section three attacks the cluster door directly. It pushes attacker images into our real registry, which simulates a stolen token."
+ },
+ {
+  "id": "s23_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Section four attacks through git, with a malicious commit to the production folder. Section five checks audit mode and live scanning, and section six checks the alerts.",
+  "tts": "Section four attacks through git, with a malicious commit to the production folder. Section five checks audit mode and live scanning, and section six checks the alerts."
+ },
+ {
+  "id": "s23_05",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "If anything is not refused, the job fails, and the promote job never runs. A release that weakens the defences can never reach production.",
+  "tts": "If anything is not refused, the job fails, and the promote job never runs. A release that weakens the defences can never reach production."
+ },
+ {
+  "id": "s24_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The most interesting attack is the imposter. It copies the Megalodon idea: a second workflow file in the same repository, called e2e dot yaml.",
+  "tts": "The most interesting attack is the imposter. It copies the Megalodon idea: a second workflow file in the same repository, called E-2-E dot YAML."
+ },
+ {
+  "id": "s24_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "That workflow takes a tampered image and signs it with a completely valid Sigstore signature. It even attaches forged provenance and a clean looking scan. The test first verifies that this signature really is valid.",
+  "tts": "That workflow takes a tampered image and signs it with a completely valid Sigstore signature. It even attaches forged provenance and a clean looking scan. The test first verifies that this signature really is valid."
+ },
+ {
+  "id": "s24_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Kyverno still refuses it, in about two seconds. Why? The certificate says e2e dot yaml, not release dot yaml. Signed is not the same as trusted. The policy checks who signed.",
+  "tts": "Kai-verno still refuses it, in about two seconds. Why? The certificate says E-2-E dot YAML, not release dot YAML. Signed is not the same as trusted. The policy checks who signed."
+ },
+ {
+  "id": "s25_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "So here are the measured results, from a real GitHub Actions run that is linked in the description. The times show how long the cluster took to say no.",
+  "tts": "So here are the measured results, from a real GitHub Actions run that is linked in the description. The times show how long the cluster took to say no."
+ },
+ {
+  "id": "s25_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "An image from another registry: refused in 484 milliseconds.",
+  "tts": "An image from another registry: refused in 484 milliseconds."
+ },
+ {
+  "id": "s25_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "An unsigned image pushed with a stolen token: refused in about two seconds. A tampered copy of our image: two seconds. And the imposter, with a valid signature: also two seconds.",
+  "tts": "An unsigned image pushed with a stolen token: refused in about two seconds. A tampered copy of our image: two seconds. And the imposter, with a valid signature: also two seconds."
+ },
+ {
+  "id": "s25_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Our own image started as a privileged container: refused in 363 milliseconds, by Pod Security.",
+  "tts": "Our own image started as a privileged container: refused in 363 milliseconds, by Pod Security."
+ },
+ {
+  "id": "s25_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The malicious git commit: Argo CD applied it, and the cluster refused it six seconds after the push. Production kept serving the whole time.",
+  "tts": "The malicious git commit: Argo C-D applied it, and the cluster refused it six seconds after the push. Production kept serving the whole time."
+ },
+ {
+  "id": "s25_05",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And the old nginx image with known vulnerabilities was found, and its alert fired. Meanwhile, the real release was admitted every single time.",
+  "tts": "And the old engine x image with known vulnerabilities was found, and its alert fired. Meanwhile, the real release was admitted every single time."
+ },
+ {
+  "id": "s26_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Now let us make this practical. You can run the whole platform on your own laptop, for free, and attack it yourself. I recorded every command and output in this part from a fresh clone of the repository, so you will see exactly what to expect.",
+  "tts": "Now let us make this practical. You can run the whole platform on your own laptop, for free, and attack it yourself. I recorded every command and output in this part from a fresh clone of the repository, so you will see exactly what to expect."
+ },
+ {
+  "id": "s26_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "You need Docker, with at least four CPUs and eight gigabytes of memory available.",
+  "tts": "You need Docker, with at least four CPUs and eight gigabytes of memory available."
+ },
+ {
+  "id": "s26_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "You need kind, which creates a Kubernetes cluster inside Docker, and git. Any Bash terminal works: macOS, Linux, or Git Bash on Windows.",
+  "tts": "You need kind, which creates a Kubernetes cluster inside Docker, and git. Any Bash terminal works: macOS, Linux, or Git Bash on Windows."
+ },
+ {
+  "id": "s26_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And an internet connection, because the cluster pulls the signed release from the registry and checks its signatures with Sigstore. There is no cloud account to create, and nothing costs money. Every other tool, like kubectl, Helm and cosign, runs inside a container that the scripts build for you.",
+  "tts": "And an internet connection, because the cluster pulls the signed release from the registry and checks its signatures with Sigstore. There is no cloud account to create, and nothing costs money. Every other tool, like kube control, Helm and co-sign, runs inside a container that the scripts build for you."
+ },
+ {
+  "id": "s27_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step one: clone the repository, go into the folder, and run the platform up script. That is the only setup command.",
+  "tts": "Step one: clone the repository, go into the folder, and run the platform up script. That is the only setup command."
+ },
+ {
+  "id": "s27_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "First it builds the toolbox image, with kubectl, Helm, cosign, crane and the Kyverno command line, all pinned and checksum verified. Then it creates a kind cluster with a control plane and a worker node.",
+  "tts": "First it builds the toolbox image, with kube control, Helm, co-sign, crane and the Kai-verno command line, all pinned and checksum verified. Then it creates a kind cluster with a control plane and a worker node."
+ },
+ {
+  "id": "s27_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Next it installs Kyverno and the policies, labels the namespaces, installs Argo CD, Trivy Operator, Prometheus and Grafana, and finally points Argo CD at the production folder on the main branch.",
+  "tts": "Next it installs Kai-verno and the policies, labels the namespaces, installs Argo C-D, Trivy Operator, Prometheus and Grafana, and finally points Argo C-D at the production folder on the main branch."
+ },
+ {
+  "id": "s27_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "From a fresh clone on my laptop, this took three minutes and thirty seven seconds. A minute later, Argo CD has deployed the signed release.",
+  "tts": "From a fresh clone on my laptop, this took three minutes and thirty seven seconds. A minute later, Argo C-D has deployed the signed release."
+ },
+ {
+  "id": "s28_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step two: look around. Every exercise is one command: scripts slash try dot S H, followed by the name of the exercise. Start with status.",
+  "tts": "Step two: look around. Every exercise is one command: scripts slash try dot S-H, followed by the name of the exercise. Start with status."
+ },
+ {
+  "id": "s28_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "You see the platform: Argo CD, Kyverno, Grafana and Prometheus, Trivy Operator, and our storefront API running in the prod namespace.",
+  "tts": "You see the platform: Argo C-D, Kai-verno, Grafana and Prometheus, Trivy Operator, and our storefront A-P-I running in the prod namespace."
+ },
+ {
+  "id": "s28_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "There are six policies: our three, plus an audit copy of each for the sandbox namespace.",
+  "tts": "There are six policies: our three, plus an audit copy of each for the sandbox namespace."
+ },
+ {
+  "id": "s28_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And the release in prod is synced and healthy, and pinned to a digest. Argo CD deployed it from git, and Kyverno verified it on the way in.",
+  "tts": "And the release in prod is synced and healthy, and pinned to a digest. Argo C-D deployed it from git, and Kai-verno verified it on the way in."
+ },
+ {
+  "id": "s29_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step three: verify the release yourself, exactly the way the cluster does. Run try dot S H verify.",
+  "tts": "Step three: verify the release yourself, exactly the way the cluster does. Run try dot S-H verify."
+ },
+ {
+  "id": "s29_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "cosign checks the signature, the certificate from Sigstore's certificate authority, and the entry in the public transparency log.",
+  "tts": "Co-sign checks the signature, the certificate from Sigstore's certificate authority, and the entry in the public transparency log."
+ },
+ {
+  "id": "s29_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "It tells you the exact commit and workflow that built the image, and that all three attestations are signed: provenance, the vulnerability scan, and the SBOM.",
+  "tts": "It tells you the exact commit and workflow that built the image, and that all three attestations are signed: provenance, the vulnerability scan, and the S-bom."
+ },
+ {
+  "id": "s29_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Now run wrong identity. It does the same check, but expects a different workflow, ci dot yaml, as the signer. It fails, and shows you who really signed: release dot yaml on main. This one check is what stops an injected workflow.",
+  "tts": "Now run wrong identity. It does the same check, but expects a different workflow, C-I dot YAML, as the signer. It fails, and shows you who really signed: release dot YAML on main. This one check is what stops an injected workflow."
+ },
+ {
+  "id": "s30_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step four: be the attacker. First the control: try dot S H trusted starts the signed release as a pod in prod. It is admitted.",
+  "tts": "Step four: be the attacker. First the control: try dot S-H trusted starts the signed release as a pod in prod. It is admitted."
+ },
+ {
+  "id": "s30_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Now foreign: an nginx image from Docker Hub. Refused by allowed images, with a message that says exactly why.",
+  "tts": "Now foreign: an engine x image from Docker Hub. Refused by allowed images, with a message that says exactly why."
+ },
+ {
+  "id": "s30_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Unsigned is a sneaky one. It builds your own image on your laptop, gives it our trusted name, and side loads it straight onto the cluster nodes, skipping the registry. Kyverno refuses it: it insists on finding the image and its signatures in the registry, and an image it cannot verify there never runs.",
+  "tts": "Unsigned is a sneaky one. It builds your own image on your laptop, gives it our trusted name, and side loads it straight onto the cluster nodes, skipping the registry. Kai-verno refuses it: it insists on finding the image and its signatures in the registry, and an image it cannot verify there never runs."
+ },
+ {
+  "id": "s30_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And privileged starts our own, trusted image as a privileged container. Pod Security refuses it, before Kyverno even looks at the image.",
+  "tts": "And privileged starts our own, trusted image as a privileged container. Pod Security refuses it, before Kai-verno even looks at the image."
+ },
+ {
+  "id": "s31_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step five: audit mode. try dot S H sandbox starts the same Docker Hub image in the sandbox namespace. This time it is admitted, and a moment later the policy report says it would be refused in prod. This is how you introduce policies without breaking anyone.",
+  "tts": "Step five: audit mode. Try dot S-H sandbox starts the same Docker Hub image in the sandbox namespace. This time it is admitted, and a moment later the policy report says it would be refused in prod. This is how you introduce policies without breaking anyone."
+ },
+ {
+  "id": "s31_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Then scan starts an old nginx, version 1.21.0, and waits for Trivy Operator. On my laptop it found twenty seven critical and one hundred thirty four high vulnerabilities.",
+  "tts": "Then scan starts an old engine x, version 1 point 21 point 0, and waits for Trivy Operator. On my laptop it found twenty seven critical and one hundred thirty four high vulnerabilities."
+ },
+ {
+  "id": "s31_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And alerts shows what Prometheus thinks. Untrusted workload blocked is firing, because of your attacks in step four. And the vulnerability alert is pending: even today's nginx 1.29 from the sandbox exercise has six critical findings. It fires after five minutes.",
+  "tts": "And alerts shows what Prometheus thinks. Untrusted workload blocked is firing, because of your attacks in step four. And the vulnerability alert is pending: even today's engine x 1 point 29 from the sandbox exercise has six critical findings. It fires after five minutes."
+ },
+ {
+  "id": "s32_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step six. try dot S H dashboard opens Grafana on localhost, port 3000, with the same dashboard you saw earlier.",
+  "tts": "Step six. Try dot S-H dashboard opens Grafana on localhost, port 3000, with the same dashboard you saw earlier."
+ },
+ {
+  "id": "s32_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "To run your own commands, source lib dot S H. Then k is kubectl, and tb runs any tool from the toolbox, for example cosign tree, to see every signature and attestation attached to the image.",
+  "tts": "To run your own commands, source lib dot S-H. Then k is kube control, and T-B runs any tool from the toolbox, for example co-sign tree, to see every signature and attestation attached to the image."
+ },
+ {
+  "id": "s32_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "When you are ready for more, the study guide has nine labs. You break a policy and let the tests catch it, break an alert and let prom tool catch it, fix a vulnerable workflow, and follow a full signed release in your own fork.",
+  "tts": "When you are ready for more, the study guide has nine labs. You break a policy and let the tests catch it, break an alert and let prom tool catch it, fix a vulnerable workflow, and follow a full signed release in your own fork."
+ },
+ {
+  "id": "s32_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "When you are done, clean up the exercise pods, and delete the cluster with kind. Your laptop is back to normal.",
+  "tts": "When you are done, clean up the exercise pods, and delete the cluster with kind. Your laptop is back to normal."
+ },
+ {
+  "id": "s33_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Now, how do you use this in your own production? Here is the plan, step by step.",
+  "tts": "Now, how do you use this in your own production? Here is the plan, step by step."
+ },
+ {
+  "id": "s33_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step one: make it yours. Change the image name and the trusted identity in the three policy files, in the release workflow, and in the test script.",
+  "tts": "Step one: make it yours. Change the image name and the trusted identity in the three policy files, in the release workflow, and in the test script."
+ },
+ {
+  "id": "s33_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step two: protect the trust anchor. Turn on branch protection for main, with required reviews and required checks, and use CODEOWNERS for the workflows and the policies. Whoever can change release dot yaml on main can release anything.",
+  "tts": "Step two: protect the trust anchor. Turn on branch protection for main, with required reviews and required checks, and use code owners for the workflows and the policies. Whoever can change release dot YAML on main can release anything."
+ },
+ {
+  "id": "s33_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step three: install Kyverno with Helm. In production, run at least three admission controller replicas, because the webhook fails closed.",
+  "tts": "Step three: install Kai-verno with Helm. In production, run at least three admission controller replicas, because the webhook fails closed."
+ },
+ {
+  "id": "s33_04",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step four: start in audit mode. Label your namespaces with audit, read the policy reports for one or two weeks, and fix what they find.",
+  "tts": "Step four: start in audit mode. Label your namespaces with audit, read the policy reports for one or two weeks, and fix what they find."
+ },
+ {
+  "id": "s34_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step five: switch to enforce gradually, one namespace at a time, starting with the most critical one.",
+  "tts": "Step five: switch to enforce gradually, one namespace at a time, starting with the most critical one."
+ },
+ {
+  "id": "s34_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step six: route the three alerts to your on call channel, and put the dashboard in front of the team.",
+  "tts": "Step six: route the three alerts to your on call channel, and put the dashboard in front of the team."
+ },
+ {
+  "id": "s34_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Step seven: for real emergencies, use a reviewed, time limited policy exception in git. Never delete the policies.",
+  "tts": "Step seven: for real emergencies, use a reviewed, time limited policy exception in git. Never delete the policies."
+ },
+ {
+  "id": "s34_03",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "And step eight, day two operations: a rollback is a git revert, there are no signing keys to rotate, and to stop trusting a build, you change the identity in the policy.",
+  "tts": "And step eight, day two operations: a rollback is a git revert, there are no signing keys to rotate, and to stop trusting a build, you change the identity in the policy."
+ },
+ {
+  "id": "s35_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Let us be honest about the limits. The build job also signs, so this is SLSA level two style provenance, not level three. The next step is the official SLSA GitHub generator.",
+  "tts": "Let us be honest about the limits. The build job also signs, so this is salsa level two style provenance, not level three. The next step is the official salsa GitHub generator."
+ },
+ {
+  "id": "s35_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Admission control does not protect against cluster admins, who can delete the policies. And the public Sigstore service is used, so air gapped clusters need a private Sigstore.",
+  "tts": "Admission control does not protect against cluster admins, who can delete the policies. And the public Sigstore service is used, so air gapped clusters need a private Sigstore."
+ },
+ {
+  "id": "s35_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Also on the list: the new Sigstore bundle format once Kyverno supports it, and verifying the signatures of the base images during the build.",
+  "tts": "Also on the list: the new Sigstore bundle format once Kai-verno supports it, and verifying the signatures of the base images during the build."
+ },
+ {
+  "id": "s36_00",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "That is the project. Production now runs only code it can prove came from your pipeline, and every release proves it again by attacking itself.",
+  "tts": "That is the project. Production now runs only code it can prove came from your pipeline, and every release proves it again by attacking itself."
+ },
+ {
+  "id": "s36_01",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "The code, the documentation and a free sixty page study guide, with labs and interview questions, are linked in the description. Clone it, run platform up, and try the attacks yourself.",
+  "tts": "The code, the documentation and a free sixty page study guide, with labs and interview questions, are linked in the description. Clone it, run platform up, and try the attacks yourself."
+ },
+ {
+  "id": "s36_02",
+  "who": "narrator",
+  "voice": "Steve",
+  "text": "Now I would like to hear from you: with your registry password, could someone run their code in your cluster? Tell me in the comments. And if this helped, subscribe for more real DevOps projects. Thanks for watching.",
+  "tts": "Now I would like to hear from you: with your registry password, could someone run their code in your cluster? Tell me in the comments. And if this helped, subscribe for more real DevOps projects. Thanks for watching."
+ }
+]

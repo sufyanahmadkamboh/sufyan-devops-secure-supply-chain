@@ -17,7 +17,7 @@ checks all of them before any pod starts, and Trivy Operator keeps re-scanning w
 
 > 📚 **New to DevOps security? Start with the [study guide](study/README.md)** (also available as a single **[PDF](study/study-guide.pdf)**). It teaches every piece of this project from zero: container images, supply-chain attacks, GitHub Actions security, SBOMs, vulnerability scanning, Sigstore, SLSA provenance, Kyverno, Pod Security, Argo CD and monitoring. It includes 9 hands-on labs and 25 interview questions.
 
-> 🎬 **Prefer video?** A 28-minute walkthrough of every tool, its configuration, a hands-on lab on your laptop and the production rollout is built from code in [video/](video/README.md), with the YouTube upload package (description, chapters, captions, thumbnail).
+> 🎬 **Prefer video?** A 27-minute walkthrough of every tool, its configuration, a hands-on lab on your laptop and the production rollout is built from code in [video/](video/README.md), with the YouTube upload package (description, chapters, captions, thumbnail).
 
 **Measured on GitHub Actions** (fresh kind cluster, every release; details in [docs/test-results.md](docs/test-results.md)):
 

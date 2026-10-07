@@ -1,15 +1,22 @@
 """Builds the tutorial video from scenes.py.
 
-    python video/build.py [page|frames|audio|video|all]      (default: all)
+    python video/build.py [page|frames|audio|video|post|licenses|all]      (default: all)
 
 Steps:
-  page    write out/page.html (all scenes; ?sc=<scene>&st=<step> shows one frame)
-  frames  screenshot every scene/step with headless Edge (shot.mjs) + the YouTube thumbnail
-  audio   narrate every step with the Windows speech engine (tts.ps1), measure it, build one WAV
-  video   encode one clip per scene (fade in/out) with ffmpeg in Docker, join, add audio
-          and write youtube/captions.srt + youtube/chapters.txt
+  page      write out/page.html (all scenes; ?sc=<scene>&st=<step> shows one frame)
+  frames    screenshot every scene/step with headless Edge (shot.mjs) + the YouTube thumbnail
+  audio     the recorded voiceover (voiceover/<step>.flac) for every step; without one, the Windows speech
+            engine (tts.ps1)
+  video     encode one clip per scene (fade in/out) with ffmpeg in Docker, join, add the narration
+            and write youtube/captions.srt + youtube/chapters.txt
+  post      voice clean-up, sound effects (no music), loudness -14 LUFS; writes
+              out/<NAME>-full.mp4     picture + voice + sound effects
+              out/<NAME>-silent.mp4   the identical picture stream (copied, frame for frame), no audio
+            and youtube/audio-events.json (the time of every sound effect, for AUDIO-LICENSES.md)
+  licenses  AUDIO-LICENSES.md from youtube/audio-events.json
 
-Requirements: Python 3 with pygments, Node.js 22+, Microsoft Edge, Windows (System.Speech), Docker.
+Requirements: Python 3 with pygments, numpy and scipy, Node.js 22+, Microsoft Edge, Docker (and Windows
+System.Speech only for the fallback narration).
 """
 
 from __future__ import annotations
@@ -30,6 +37,8 @@ from components import SVG_DEFS  # noqa: E402
 from scenes import SCENES  # noqa: E402
 
 OUT = HERE / "out"
+NAME = "kubernetes-supply-chain-security"
+VOICEOVER = HERE / "voiceover"
 FRAMES, AUDIO = OUT / "frames", OUT / "audio"
 YT = HERE / "youtube"
 FPS = 30
@@ -190,6 +199,14 @@ def audio() -> None:
         old.unlink()
     items = [{"text": spoken(st), "out": str(AUDIO / f"{frame_name(i, k)}.wav")}
              for i, s in enumerate(SCENES) for k, st in enumerate(s["steps"])]
+    if all((VOICEOVER / f"{Path(it['out']).stem}.flac").exists() for it in items):
+        # the recorded voiceover (voiceover/<step>.flac), decoded to the narration format
+        script = "".join(f"ffmpeg -y -loglevel error -i /vo/{Path(it['out']).stem}.flac -ac 1 -ar {RATE} "
+                         f"-sample_fmt s16 /work/audio/{Path(it['out']).name}\n" for it in items)
+        subprocess.run(["docker", "run", "--rm", "-v", f"{VOICEOVER}:/vo:ro", "-v", f"{OUT}:/work",
+                        "--entrypoint", "bash", FFMPEG_IMAGE, "-c", script], check=True)
+        print(f"audio: {len(items)} recorded voiceover lines from video/voiceover")
+        return
     (OUT / "tts.json").write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
     subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(HERE / "tts.ps1"),
                     str(OUT / "tts.json"), VOICE, str(RATE), SPEED], check=True)
@@ -300,10 +317,91 @@ def video() -> None:
         joined.append(f"file 'scene{sc['i']:02d}.mp4'")
     (clips / "all.txt").write_text("\n".join(joined) + "\n", encoding="utf-8", newline="\n")
     script.append("ffmpeg -y -loglevel error -f concat -safe 0 -i clips/all.txt -i narration.wav -map 0:v -map 1:a "
-                  "-af acompressor=threshold=-30dB:ratio=6:attack=5:release=120:makeup=22dB,alimiter=limit=0.89:level=false -c:v copy -c:a aac -b:a 160k -ar 48000 -ac 2 -shortest -movflags +faststart video.mp4")
+                  "-c:v copy -c:a aac -b:a 160k -ar 48000 -ac 1 -shortest -movflags +faststart video.mp4")
     (OUT / "encode.sh").write_text("\n".join(script) + "\n", encoding="utf-8", newline="\n")
     subprocess.run(["docker", "run", "--rm", "-v", f"{OUT}:/work", "--entrypoint", "bash", FFMPEG_IMAGE, "/work/encode.sh"], check=True)
     captions_and_chapters(plan)
+
+
+# ------------------------------------------------------------------------------------------------ post
+def post() -> None:
+    import sound_effects
+    plan = timeline()
+    events, t = [(0.0, "intro")], 0.0
+    for n, sc in enumerate(plan):
+        if n > 0:
+            events.append((t, "chapter" if sc["chapter"] else "scene"))
+        if n == len(plan) - 1:
+            events.append((t + sum(st["frames"] for st in sc["steps"]) / FPS - 3.0, "outro"))
+        t += sum(st["frames"] for st in sc["steps"]) / FPS
+    total = t
+    mix = OUT / "mix"
+    mix.mkdir(exist_ok=True)
+
+    def ff(*args, capture=False):
+        r = subprocess.run(["docker", "run", "--rm", "-v", f"{OUT}:/work", "-w", "/work", "--entrypoint", "ffmpeg",
+                            FFMPEG_IMAGE, "-hide_banner", "-y", *args], check=True, capture_output=capture, text=True)
+        return r.stderr if capture else ""
+    ff("-loglevel", "error", "-i", "narration.wav", "-af",
+       "highpass=f=80,equalizer=f=3200:t=q:w=1.2:g=2.5,equalizer=f=250:t=q:w=1:g=-1.5,"
+       "acompressor=threshold=-26dB:ratio=3:attack=5:release=160:makeup=4dB,"
+       "loudnorm=I=-17:TP=-2:LRA=9,aresample=48000", "-ac", "1", "mix/voice.wav")
+    sound_effects.render_mix(mix / "voice.wav", mix / "mix.wav", total, events)
+    measured = json.loads(re.search(r"\{[^{}]*\}", ff("-nostats", "-i", "mix/mix.wav", "-af",
+                          "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-", capture=True)).group(0))
+    ff("-loglevel", "error", "-i", "mix/mix.wav", "-af",
+       "loudnorm=I=-14:TP=-1.5:LRA=11:linear=true:"
+       f"measured_I={measured['input_i']}:measured_TP={measured['input_tp']}:measured_LRA={measured['input_lra']}:"
+       f"measured_thresh={measured['input_thresh']}:offset={measured['target_offset']},aresample=48000", "mix/final.wav")
+    ff("-loglevel", "error", "-i", "video.mp4", "-i", "mix/final.wav", "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+       "-c:a", "aac", "-b:a", "320k", "-ar", "48000", "-ac", "2", "-shortest", "-movflags", "+faststart",
+       f"{NAME}-full.mp4")
+    ff("-loglevel", "error", "-i", "video.mp4", "-map", "0:v", "-c:v", "copy", "-an", "-movflags", "+faststart",
+       f"{NAME}-silent.mp4")
+    (YT / "audio-events.json").write_text(json.dumps({"name": NAME, "total": total, "events": events}),
+                                          encoding="utf-8", newline="\n")
+    print(f"{len(events)} sound effects, {stamp(total)} -> out/{NAME}-full.mp4 and -silent.mp4")
+
+
+SOUNDS = {
+    "intro": ("Intro sting (soft impact + bell arpeggio)", "start of the video"),
+    "scene": ("Scene whoosh (quiet)", "cuts between scenes"),
+    "chapter": ("Chapter whoosh", "cuts that start a new chapter"),
+    "outro": ("Outro chord", "last seconds of the video"),
+}
+
+
+def licenses() -> None:
+    """AUDIO-LICENSES.md: every audio asset of the full video, its license, and when it plays."""
+    mmss = lambda t: f"{int(t // 60)}:{int(t % 60):02d}"  # noqa: E731
+    d = json.loads((YT / "audio-events.json").read_text(encoding="utf-8"))
+    total, events = d["total"], d["events"]
+    own = ("Sufyan Ahmad (this repository)", "MIT (repository license)", "[LICENSE](../LICENSE)", "none required")
+    rows = [("Narration", "text: Sufyan Ahmad; voice: SpeakSay",
+             'SpeakSay AI text-to-speech, voice "Steve" (V2 model), `voiceover/`',
+             "SpeakSay Terms of Service; the narration text is original",
+             "[speaksay.com/terms-services](https://www.speaksay.com/terms-services)", "none",
+             f"0:00 – {mmss(total)}", "voiceover")]
+    for kind, (asset, usage) in SOUNDS.items():
+        times = [mmss(t) for t, k in events if k == kind]
+        if times:
+            shown = ", ".join(times) if len(times) <= 30 else ", ".join(times[:30]) + f", … ({len(times)} in total)"
+            rows.append((asset, own[0], f'generated by `sound_effects.sfx("{kind}")`', *own[1:], shown, usage))
+    table = "\n".join("| " + " | ".join(r) + " |" for r in rows)
+    text = ("# Audio licenses\n\nEvery audio asset in the full version of the video, where it comes from, its license, "
+            "and when it plays. The silent version (`*-silent.mp4`) has no audio track at all.\n\n"
+            "**There is no music, and no third-party sound-effect files are used.** Every sound effect is original: "
+            "synthesised by [`sound_effects.py`](sound_effects.py) from sine waves, filtered noise and envelopes "
+            "(numpy/scipy). This file is written by `build.py licenses` from the actual timeline of the video.\n\n"
+            "Note on the narration: the voiceover (`voiceover/`) was generated with SpeakSay (AI text-to-speech, paid "
+            "Lifetime plan) from the original script in `voiceover/lines.json`. SpeakSay's Terms of Service do not "
+            "state the commercial rights to generated audio explicitly: confirm them with SpeakSay before commercial "
+            "distribution.\n\n"
+            f"## `{d['name']}-full.mp4` ({mmss(total)})\n\n"
+            "| Asset | Creator | Source | License | License URL | Attribution | Timestamp | Usage |\n"
+            "|---|---|---|---|---|---|---|---|\n" + table + "\n")
+    (HERE / "AUDIO-LICENSES.md").write_text(text, encoding="utf-8", newline="\n")
+    print("wrote AUDIO-LICENSES.md")
 
 
 if __name__ == "__main__":
@@ -316,3 +414,7 @@ if __name__ == "__main__":
         audio()
     if what in ("video", "all"):
         video()
+    if what in ("post", "all"):
+        post()
+    if what in ("licenses", "all"):
+        licenses()

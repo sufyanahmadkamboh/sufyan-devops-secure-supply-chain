@@ -1,28 +1,34 @@
 # Video tutorial
 
-A 28-minute explainer of this project, built entirely from code: every frame is an HTML scene rendered by a
-headless browser, the narration uses the Windows speech engine, and ffmpeg assembles the result.
+A 27-minute explainer of this project, built entirely from code: every frame is an HTML scene rendered by a
+headless browser, the voiceover is a recorded AI voice (SpeakSay), and ffmpeg assembles the result. There is no
+music: the soundtrack is the voice plus a few short sound effects.
 
 | File | What it is |
 |---|---|
 | `scenes.py` | the script: 37 scenes, 155 narration steps, and the visuals for each step |
 | `components.py` | building blocks: cards, tiles, diagrams, highlighted code excerpts |
-| `build.py` | the pipeline: page → frames → narration → encode → captions and chapters |
+| `build.py` | the pipeline: page → frames → narration → encode → captions and chapters → post-production |
 | `shot.mjs` | screenshots the scenes with one headless Edge/Chrome (DevTools protocol) |
-| `tts.ps1` | narrates each step offline with `System.Speech` |
+| `voiceover/` | the recorded voiceover: one FLAC per narration step (SpeakSay, voice "Steve"), and `lines.json`, the exact text each file says |
+| `sound_effects.py` | the sound effects (whooshes on cuts, intro sting, outro chord), synthesised in code |
+| `tts.ps1` | fallback narration with the Windows speech engine, used only when `voiceover/` is missing |
+| `AUDIO-LICENSES.md` | every audio asset, its license and when it plays |
 | `thumbnail.html` | the YouTube thumbnail (1280×720) |
 | `youtube/` | upload package: title options, description (with chapters), tags, captions (SRT), thumbnail, pinned comment |
 
 ## Build
 
-Requirements: Windows (for `System.Speech`), Python 3 with `pygments` and `Pillow`, Node.js 22+, Microsoft Edge
+Requirements: Python 3 with `pygments`, `Pillow`, `numpy` and `scipy`, Node.js 22+, Microsoft Edge
 (or set `BROWSER`), and Docker (ffmpeg runs in a container pinned by digest).
 
 ```bash
-python video/build.py            # everything, about 7 minutes; output: video/out/video.mp4
+python video/build.py            # everything; output: video/out/kubernetes-supply-chain-security-{full,silent}.mp4
 python video/build.py frames     # only re-render the visuals after editing scenes.py
-python video/build.py audio      # only re-narrate (VOICE="Microsoft Zira Desktop" SPEED=1 to change the voice)
+python video/build.py audio      # only re-read the narration (from voiceover/)
 python video/build.py video      # only re-encode, and rewrite captions, chapters and the description
+python video/build.py post       # voice clean-up, sound effects, -14 LUFS, the full and silent MP4s
+python video/build.py licenses   # AUDIO-LICENSES.md
 ```
 
 How it fits together:
@@ -31,9 +37,10 @@ How it fits together:
 - Each step's frame stays on screen exactly as long as its narration plus a short pause, rounded to whole video
   frames. The audio track is built from the same timings, so picture and voice cannot drift apart.
 - Captions come from the same text as the narration, split into sentences and timed in proportion to their length.
-- Words the speech engine would mispronounce (Kyverno, SBOM, kubectl, …) are respelled for the voice only
-  (`PRONOUNCE` in `build.py`). The captions keep the real spelling.
-- Audio is compressed and limited to about −15 LUFS, close to YouTube's playback loudness.
+- Words a voice would mispronounce (Kyverno, SBOM, kubectl, decimals, …) are respelled for the voice only; the
+  exact spoken text of every step is in `voiceover/lines.json`. The captions keep the real spelling.
+- The voice is cleaned up (high-pass, presence EQ, gentle compression), the sound effects are mixed in, and the
+  result is normalised to −14 LUFS, YouTube's playback loudness.
 
 ## Facts in the video
 
@@ -42,7 +49,8 @@ real file named in its title bar; `…` marks a cut.
 
 ## Upload checklist
 
-1. Upload `out/video.mp4`, and use the first title in `youtube/title.txt`.
+1. Upload `out/kubernetes-supply-chain-security-full.mp4`, and use the first title in `youtube/title.txt`. The
+   `-silent.mp4` version has the identical picture and no audio track (for re-voicing or other platforms).
 2. Paste `youtube/description.md` as the description. Its chapter list turns into YouTube chapters.
 3. Set `youtube/thumbnail.png` as the thumbnail, and add the tags from `youtube/tags.txt`.
 4. Under Subtitles, upload `youtube/captions.srt` (English), so captions are accurate and searchable.
