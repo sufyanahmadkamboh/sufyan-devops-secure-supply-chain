@@ -6,3 +6,5 @@ reports/
 cosign.*
 video/out/
 __pycache__/
+video/short/page.html
+video/short/__pycache__/

@@ -1,0 +1,145 @@
+[
+ {
+  "id": "c01",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "Someone stole our registry password and pushed their own image. Production refused it in two seconds."
+ },
+ {
+  "id": "c02",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "Nobody had to notice."
+ },
+ {
+  "id": "c03",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "Here's the problem. Kubernetes runs whatever image sits in your registry, as long as the token is valid."
+ },
+ {
+  "id": "c05",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "So every image my pipeline builds gets signed by the release workflow itself. No private key anywhere."
+ },
+ {
+  "id": "c06",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "Plus three signed papers: where it was built, a vulnerability scan, and a list of every library inside."
+ },
+ {
+  "id": "c07",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "At the cluster door, Kai-verno checks all of it, before any pod can start."
+ },
+ {
+  "id": "c08",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "Then I attack it. Seven different ways, on every single release."
+ },
+ {
+  "id": "c09",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "An image from another registry? Refused in under half a second."
+ },
+ {
+  "id": "c10",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "Unsigned, pushed with a stolen token? Refused in two seconds."
+ },
+ {
+  "id": "c11",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "The scary one: a perfectly valid signature, from the wrong workflow. Still refused."
+ },
+ {
+  "id": "c12",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "A malicious commit to git? Argo C-D applied it. The cluster refused it six seconds later."
+ },
+ {
+  "id": "c13",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "And the real release? Admitted, every single time."
+ },
+ {
+  "id": "c14",
+  "voice": "Steve",
+  "settings": {
+   "model": "mtl_tts",
+   "exaggeration": 0.65,
+   "cfg_weight": 0.4,
+   "seed": 3000
+  },
+  "tts": "The full project is free. Follow, and I'll show you how to build it."
+ }
+]

@@ -1,0 +1,883 @@
+{
+ "c01": [
+  {
+   "w": "Someone",
+   "start": 0.0,
+   "end": 0.38
+  },
+  {
+   "w": "stole",
+   "start": 0.38,
+   "end": 0.76
+  },
+  {
+   "w": "our",
+   "start": 0.76,
+   "end": 1.02
+  },
+  {
+   "w": "registry",
+   "start": 1.02,
+   "end": 1.38
+  },
+  {
+   "w": "password",
+   "start": 1.38,
+   "end": 1.92
+  },
+  {
+   "w": "and",
+   "start": 1.92,
+   "end": 2.22
+  },
+  {
+   "w": "pushed",
+   "start": 2.22,
+   "end": 2.44
+  },
+  {
+   "w": "their",
+   "start": 2.44,
+   "end": 2.66
+  },
+  {
+   "w": "own",
+   "start": 2.66,
+   "end": 2.82
+  },
+  {
+   "w": "image.",
+   "start": 2.82,
+   "end": 3.16
+  },
+  {
+   "w": "Production",
+   "start": 4.0,
+   "end": 4.1
+  },
+  {
+   "w": "refused",
+   "start": 4.1,
+   "end": 4.62
+  },
+  {
+   "w": "it",
+   "start": 4.62,
+   "end": 4.86
+  },
+  {
+   "w": "in",
+   "start": 4.86,
+   "end": 5.06
+  },
+  {
+   "w": "two",
+   "start": 5.06,
+   "end": 5.28
+  },
+  {
+   "w": "seconds.",
+   "start": 5.28,
+   "end": 5.62
+  }
+ ],
+ "c02": [
+  {
+   "w": "Nobody",
+   "start": 0.0,
+   "end": 0.3
+  },
+  {
+   "w": "had",
+   "start": 0.3,
+   "end": 0.62
+  },
+  {
+   "w": "to",
+   "start": 0.62,
+   "end": 0.76
+  },
+  {
+   "w": "notice.",
+   "start": 0.76,
+   "end": 1.02
+  }
+ ],
+ "c03": [
+  {
+   "w": "Here's",
+   "start": 0.0,
+   "end": 0.22
+  },
+  {
+   "w": "the",
+   "start": 0.22,
+   "end": 0.32
+  },
+  {
+   "w": "problem.",
+   "start": 0.32,
+   "end": 0.7
+  },
+  {
+   "w": "Kubernetes",
+   "start": 1.52,
+   "end": 1.94
+  },
+  {
+   "w": "runs",
+   "start": 1.94,
+   "end": 2.22
+  },
+  {
+   "w": "whatever",
+   "start": 2.22,
+   "end": 2.68
+  },
+  {
+   "w": "image",
+   "start": 2.68,
+   "end": 3.08
+  },
+  {
+   "w": "sits",
+   "start": 3.08,
+   "end": 3.38
+  },
+  {
+   "w": "in",
+   "start": 3.38,
+   "end": 3.6
+  },
+  {
+   "w": "your",
+   "start": 3.6,
+   "end": 3.72
+  },
+  {
+   "w": "registry,",
+   "start": 3.72,
+   "end": 4.18
+  },
+  {
+   "w": "as",
+   "start": 4.54,
+   "end": 4.7
+  },
+  {
+   "w": "long",
+   "start": 4.7,
+   "end": 4.9
+  },
+  {
+   "w": "as",
+   "start": 4.9,
+   "end": 5.06
+  },
+  {
+   "w": "the",
+   "start": 5.06,
+   "end": 5.18
+  },
+  {
+   "w": "token",
+   "start": 5.18,
+   "end": 5.42
+  },
+  {
+   "w": "is",
+   "start": 5.42,
+   "end": 5.6
+  },
+  {
+   "w": "valid.",
+   "start": 5.6,
+   "end": 5.86
+  }
+ ],
+ "c05": [
+  {
+   "w": "so",
+   "start": 0.0,
+   "end": 0.18
+  },
+  {
+   "w": "every",
+   "start": 0.18,
+   "end": 0.52
+  },
+  {
+   "w": "image",
+   "start": 0.52,
+   "end": 0.9
+  },
+  {
+   "w": "my",
+   "start": 0.9,
+   "end": 1.14
+  },
+  {
+   "w": "pipeline",
+   "start": 1.14,
+   "end": 1.62
+  },
+  {
+   "w": "builds",
+   "start": 1.62,
+   "end": 2.08
+  },
+  {
+   "w": "gets",
+   "start": 2.08,
+   "end": 2.36
+  },
+  {
+   "w": "signed",
+   "start": 2.36,
+   "end": 2.76
+  },
+  {
+   "w": "by",
+   "start": 2.76,
+   "end": 3.06
+  },
+  {
+   "w": "the",
+   "start": 3.06,
+   "end": 3.2
+  },
+  {
+   "w": "release",
+   "start": 3.2,
+   "end": 3.46
+  },
+  {
+   "w": "workflow",
+   "start": 3.46,
+   "end": 3.96
+  },
+  {
+   "w": "itself.",
+   "start": 3.96,
+   "end": 4.34
+  },
+  {
+   "w": "No",
+   "start": 4.88,
+   "end": 5.08
+  },
+  {
+   "w": "private",
+   "start": 5.08,
+   "end": 5.36
+  },
+  {
+   "w": "key",
+   "start": 5.36,
+   "end": 5.72
+  },
+  {
+   "w": "anywhere.",
+   "start": 5.72,
+   "end": 6.08
+  }
+ ],
+ "c06": [
+  {
+   "w": "plus",
+   "start": 0.0,
+   "end": 0.18
+  },
+  {
+   "w": "three",
+   "start": 0.18,
+   "end": 0.46
+  },
+  {
+   "w": "signed",
+   "start": 0.46,
+   "end": 0.76
+  },
+  {
+   "w": "papers",
+   "start": 0.76,
+   "end": 1.1
+  },
+  {
+   "w": "where",
+   "start": 1.1,
+   "end": 1.42
+  },
+  {
+   "w": "it",
+   "start": 1.42,
+   "end": 1.52
+  },
+  {
+   "w": "was",
+   "start": 1.52,
+   "end": 1.64
+  },
+  {
+   "w": "built,",
+   "start": 1.64,
+   "end": 1.92
+  },
+  {
+   "w": "a",
+   "start": 2.48,
+   "end": 2.54
+  },
+  {
+   "w": "vulnerability",
+   "start": 2.54,
+   "end": 2.98
+  },
+  {
+   "w": "scan,",
+   "start": 2.98,
+   "end": 3.56
+  },
+  {
+   "w": "and",
+   "start": 4.0,
+   "end": 4.22
+  },
+  {
+   "w": "a",
+   "start": 4.22,
+   "end": 4.34
+  },
+  {
+   "w": "list",
+   "start": 4.34,
+   "end": 4.46
+  },
+  {
+   "w": "of",
+   "start": 4.46,
+   "end": 4.66
+  },
+  {
+   "w": "every",
+   "start": 4.66,
+   "end": 5.02
+  },
+  {
+   "w": "library",
+   "start": 5.02,
+   "end": 5.42
+  },
+  {
+   "w": "inside.",
+   "start": 5.42,
+   "end": 5.9
+  }
+ ],
+ "c07": [
+  {
+   "w": "at",
+   "start": 0.0,
+   "end": 0.14
+  },
+  {
+   "w": "the",
+   "start": 0.14,
+   "end": 0.26
+  },
+  {
+   "w": "cluster",
+   "start": 0.26,
+   "end": 0.52
+  },
+  {
+   "w": "door,",
+   "start": 0.52,
+   "end": 0.88
+  },
+  {
+   "w": "Kyve",
+   "start": 1.36,
+   "end": 1.5
+  },
+  {
+   "w": "Renault",
+   "start": 1.5,
+   "end": 1.64
+  },
+  {
+   "w": "checks",
+   "start": 1.64,
+   "end": 1.94
+  },
+  {
+   "w": "all",
+   "start": 1.94,
+   "end": 2.24
+  },
+  {
+   "w": "of",
+   "start": 2.24,
+   "end": 2.36
+  },
+  {
+   "w": "it",
+   "start": 2.36,
+   "end": 2.56
+  },
+  {
+   "w": "before",
+   "start": 2.56,
+   "end": 3.06
+  },
+  {
+   "w": "any",
+   "start": 3.06,
+   "end": 3.34
+  },
+  {
+   "w": "pod",
+   "start": 3.34,
+   "end": 3.6
+  },
+  {
+   "w": "can",
+   "start": 3.6,
+   "end": 3.82
+  },
+  {
+   "w": "start.",
+   "start": 3.82,
+   "end": 4.12
+  }
+ ],
+ "c08": [
+  {
+   "w": "then",
+   "start": 0.0,
+   "end": 0.2
+  },
+  {
+   "w": "I",
+   "start": 0.2,
+   "end": 0.58
+  },
+  {
+   "w": "attack",
+   "start": 0.58,
+   "end": 1.0
+  },
+  {
+   "w": "it,",
+   "start": 1.0,
+   "end": 1.32
+  },
+  {
+   "w": "seven",
+   "start": 1.56,
+   "end": 1.86
+  },
+  {
+   "w": "different",
+   "start": 1.86,
+   "end": 2.16
+  },
+  {
+   "w": "ways,",
+   "start": 2.16,
+   "end": 2.58
+  },
+  {
+   "w": "on",
+   "start": 2.8,
+   "end": 3.02
+  },
+  {
+   "w": "every",
+   "start": 3.02,
+   "end": 3.46
+  },
+  {
+   "w": "single",
+   "start": 3.46,
+   "end": 3.86
+  },
+  {
+   "w": "release.",
+   "start": 3.86,
+   "end": 4.28
+  }
+ ],
+ "c09": [
+  {
+   "w": "An",
+   "start": 0.0,
+   "end": 0.14
+  },
+  {
+   "w": "image",
+   "start": 0.14,
+   "end": 0.3
+  },
+  {
+   "w": "from",
+   "start": 0.3,
+   "end": 0.52
+  },
+  {
+   "w": "another",
+   "start": 0.52,
+   "end": 0.78
+  },
+  {
+   "w": "registry,",
+   "start": 0.78,
+   "end": 1.32
+  },
+  {
+   "w": "refused",
+   "start": 1.66,
+   "end": 2.02
+  },
+  {
+   "w": "in",
+   "start": 2.02,
+   "end": 2.3
+  },
+  {
+   "w": "under",
+   "start": 2.3,
+   "end": 2.5
+  },
+  {
+   "w": "half",
+   "start": 2.5,
+   "end": 2.68
+  },
+  {
+   "w": "a",
+   "start": 2.68,
+   "end": 2.84
+  },
+  {
+   "w": "second.",
+   "start": 2.84,
+   "end": 3.04
+  }
+ ],
+ "c10": [
+  {
+   "w": "unsigned,",
+   "start": 0.0,
+   "end": 0.52
+  },
+  {
+   "w": "pushed",
+   "start": 0.92,
+   "end": 1.06
+  },
+  {
+   "w": "with",
+   "start": 1.06,
+   "end": 1.28
+  },
+  {
+   "w": "a",
+   "start": 1.28,
+   "end": 1.42
+  },
+  {
+   "w": "stolen",
+   "start": 1.42,
+   "end": 1.66
+  },
+  {
+   "w": "token,",
+   "start": 1.66,
+   "end": 2.06
+  },
+  {
+   "w": "refused",
+   "start": 2.66,
+   "end": 3.0
+  },
+  {
+   "w": "in",
+   "start": 3.0,
+   "end": 3.26
+  },
+  {
+   "w": "two",
+   "start": 3.26,
+   "end": 3.46
+  },
+  {
+   "w": "seconds.",
+   "start": 3.46,
+   "end": 3.82
+  }
+ ],
+ "c11": [
+  {
+   "w": "the",
+   "start": 0.0,
+   "end": 0.14
+  },
+  {
+   "w": "scary",
+   "start": 0.14,
+   "end": 0.46
+  },
+  {
+   "w": "one,",
+   "start": 0.46,
+   "end": 0.86
+  },
+  {
+   "w": "a",
+   "start": 1.2,
+   "end": 1.32
+  },
+  {
+   "w": "perfectly",
+   "start": 1.32,
+   "end": 1.74
+  },
+  {
+   "w": "valid",
+   "start": 1.74,
+   "end": 2.14
+  },
+  {
+   "w": "signature",
+   "start": 2.14,
+   "end": 2.68
+  },
+  {
+   "w": "from",
+   "start": 2.68,
+   "end": 3.08
+  },
+  {
+   "w": "the",
+   "start": 3.08,
+   "end": 3.2
+  },
+  {
+   "w": "wrong",
+   "start": 3.2,
+   "end": 3.44
+  },
+  {
+   "w": "workflow,",
+   "start": 3.44,
+   "end": 3.98
+  },
+  {
+   "w": "still",
+   "start": 4.56,
+   "end": 4.9
+  },
+  {
+   "w": "refused.",
+   "start": 4.9,
+   "end": 5.36
+  }
+ ],
+ "c12": [
+  {
+   "w": "A",
+   "start": 0.0,
+   "end": 0.14
+  },
+  {
+   "w": "malicious",
+   "start": 0.14,
+   "end": 0.48
+  },
+  {
+   "w": "commit",
+   "start": 0.48,
+   "end": 0.9
+  },
+  {
+   "w": "to",
+   "start": 0.9,
+   "end": 1.14
+  },
+  {
+   "w": "get,",
+   "start": 1.14,
+   "end": 1.44
+  },
+  {
+   "w": "Argo",
+   "start": 2.08,
+   "end": 2.32
+  },
+  {
+   "w": "CD",
+   "start": 2.32,
+   "end": 2.78
+  },
+  {
+   "w": "applied",
+   "start": 2.78,
+   "end": 3.24
+  },
+  {
+   "w": "it.",
+   "start": 3.24,
+   "end": 3.64
+  },
+  {
+   "w": "The",
+   "start": 3.98,
+   "end": 4.14
+  },
+  {
+   "w": "cluster",
+   "start": 4.14,
+   "end": 4.48
+  },
+  {
+   "w": "refused",
+   "start": 4.48,
+   "end": 5.0
+  },
+  {
+   "w": "it",
+   "start": 5.0,
+   "end": 5.18
+  },
+  {
+   "w": "six",
+   "start": 5.18,
+   "end": 5.48
+  },
+  {
+   "w": "seconds",
+   "start": 5.48,
+   "end": 5.8
+  },
+  {
+   "w": "later.",
+   "start": 5.8,
+   "end": 6.08
+  }
+ ],
+ "c13": [
+  {
+   "w": "and",
+   "start": 0.0,
+   "end": 0.14
+  },
+  {
+   "w": "the",
+   "start": 0.14,
+   "end": 0.28
+  },
+  {
+   "w": "real",
+   "start": 0.28,
+   "end": 0.56
+  },
+  {
+   "w": "release,",
+   "start": 0.56,
+   "end": 1.04
+  },
+  {
+   "w": "admitted,",
+   "start": 1.44,
+   "end": 1.76
+  },
+  {
+   "w": "every",
+   "start": 2.48,
+   "end": 2.56
+  },
+  {
+   "w": "single",
+   "start": 2.56,
+   "end": 2.88
+  },
+  {
+   "w": "time.",
+   "start": 2.88,
+   "end": 3.28
+  }
+ ],
+ "c14": [
+  {
+   "w": "the",
+   "start": 0.0,
+   "end": 0.14
+  },
+  {
+   "w": "full",
+   "start": 0.14,
+   "end": 0.32
+  },
+  {
+   "w": "project",
+   "start": 0.32,
+   "end": 0.7
+  },
+  {
+   "w": "is",
+   "start": 0.7,
+   "end": 1.06
+  },
+  {
+   "w": "free.",
+   "start": 1.06,
+   "end": 1.42
+  },
+  {
+   "w": "Follow,",
+   "start": 1.8,
+   "end": 2.12
+  },
+  {
+   "w": "and",
+   "start": 2.54,
+   "end": 2.68
+  },
+  {
+   "w": "I'll",
+   "start": 2.68,
+   "end": 2.86
+  },
+  {
+   "w": "show",
+   "start": 2.86,
+   "end": 3.02
+  },
+  {
+   "w": "you",
+   "start": 3.02,
+   "end": 3.16
+  },
+  {
+   "w": "how",
+   "start": 3.16,
+   "end": 3.3
+  },
+  {
+   "w": "to",
+   "start": 3.3,
+   "end": 3.42
+  },
+  {
+   "w": "build",
+   "start": 3.42,
+   "end": 3.56
+  },
+  {
+   "w": "it.",
+   "start": 3.56,
+   "end": 3.76
+  }
+ ]
+}
