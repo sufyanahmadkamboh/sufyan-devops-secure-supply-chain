@@ -1,5 +1,5 @@
 # Base images are pinned by digest: a tag can be moved to different content, a digest cannot.
-FROM golang:1.27.1-trixie@sha256:3b77fc618ec235a1ab412de7737f120dd507c57e8d87de4cbb7994fb94275ed5 AS build
+FROM golang:1.27.2-trixie@sha256:47667934874913a449b96faa7ef4777fa285d9ec29126ee80ed61c45b7cccf0e AS build
 WORKDIR /src
 COPY go.mod ./
 COPY *.go ./
